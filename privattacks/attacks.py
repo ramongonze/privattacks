@@ -5,6 +5,19 @@ from typing import Union, List
 class Attack():
 
     def __init__(self, data:privattacks.Data):
+        """
+        Initialize an instance of the Attack class.
+
+        Parameters:
+            - data (privattacks.Data): An instance of the Data class from the privattacks module. 
+            This object represents the dataset to be used for analyzing vulnerabilities 
+            to probabilistic re-identification and attribute inference attacks.
+
+        Attributes:
+            - data (privattacks.Data): Stores the dataset object, providing access to 
+            the dataset's attributes, such as columns (`cols`) and number of rows 
+            (`num_rows`).
+        """
         self.data = data
 
     def _check_qids(self, qids:list[str]) -> bool:
@@ -33,7 +46,7 @@ class Attack():
                 
     def prior_reid(self):
         """
-        Calculates the prior vulnerability of probabilistic re-identification attack.
+        Prior vulnerability of probabilistic re-identification attack.
 
         Returns:
             float: Prior vulnerability.
@@ -42,10 +55,13 @@ class Attack():
 
     def prior_ai(self, sensitive:Union[str, List[str]]):
         """
-        Calculates the prior vulnerability of probabilistic attribute inference attack.
+        Prior vulnerability of probabilistic attribute inference attack.
+        
+        Parameters:
+            - sensitive (str, list): A single or a list of sensitive attributes.
 
         Returns:
-            dict[str, float]: A dictionary containing the prior vulnerability for each sensitive attribute. Keys are attribute names and values are prior vulnerabilities.
+            - dict[str, float]: Dictionary containing the prior vulnerability for each sensitive attribute (keys are sensitive attribute names and values are posterior vulnerabilities).
         """
         self._check_sensitive(sensitive)
         if isinstance(sensitive, str):
@@ -58,18 +74,15 @@ class Attack():
             posteriors[att] = int(counts.max()) / self.data.num_rows
         return posteriors
 
-    def posterior_reid(self, qids:list[str], hist:bool=False, bin_size:int=5):
+    def posterior_reid(self, qids:list[str]):
         """
-        Calculate the expected posterior vulnerability of probabilistic re-identification attack for a given dataset. If hist is True, it provides also the histogram of individual posterior vulnerabilities (i.e., the posterior of each person in the dataset).
+        Posterior vulnerability of probabilistic re-identification attack.
 
         Parameters:
             - qids (list[str]): List of quasi-identifiers.
-            - hist (bool, optional): Whether to generate the histogram of posterior vulnerabilities. Default is False.
-            - bin_size (int, optional): Histogram bin size. The parameter hist must be True. Default is 5.
 
         Returns:
-            float or tuple: If hist is False, returns the expected posterior vulnerability of Probabilistic Re-identification attack.
-            If hist is True, returns a list containing the expected posterior probability and a histogram of individual posterior vulnerabilities. The histogram is an array of size 100/bin_size where the ith element is the count for the ith bin.
+            - float: Posterior vulnerability.
         """
         self._check_qids(qids)
         qids_idx = [self.data.col2int(att) for att in qids]
@@ -83,20 +96,17 @@ class Attack():
         
         return posterior
     
-    def posterior_ai(self, qids:list[str], sensitive:Union[str, List[str]], hist:bool=False, bin_size:int=5):
+    def posterior_ai(self, qids:list[str], sensitive:Union[str, List[str]]):
         """
-        Calculate the expected posterior vulnerability of probabilistic attribute inference attack for a given dataset. If hist is True, it provides also the histogram of individual posterior vulnerabilities (i.e., the posterior of each person in the dataset).
-
-        Obs: It assumes the dataset is sorted by QID columns + sensitive attribute columsn.
+        Posterior vulnerability of probabilistic attribute inference attack.
+        Obs: It assumes the dataset is sorted by QID columns + sensitive attribute columns.
 
         Parameters:
-            - qids (list, optional): List of quasi-identifiers. If not provided, all columns will be used.
-            - hist (bool, optional): Whether to generate the histogram of posterior vulnerabilities. Default is False.
-            - bin_size (int, optional): Bin size for the histogram if hist is True. Default is 5.
+            - qids (list): List of quasi-identifiers. If not provided, all columns will be used.
+            - sensitive (str, list): A single or a list of sensitive attributes.
 
         Returns:
-            dict[str, float] or (dict[str, float], tuple): If hist is False, returns a dictionary with the expected posterior vulnerability of probabilistic attribute inference attack for each sensitive attribute.
-            If hist is True, returns a tuple containing a dictionary with the expected posterior vulnerability of probabilistic attribute inference attack for each sensitive attribute and the histogram of individual posterior vulnerabilities.
+            - dict[str, float]: Dictionary containing the posterior vulnerability for each sensitive attribute (keys are sensitive attribute names and values are posterior vulnerabilities).
         """
         self._check_qids(qids)
         self._check_sensitive(sensitive)
@@ -134,20 +144,17 @@ class Attack():
         
         return posteriors
 
-    def posterior_reid_ai(self, qids:list[str], sensitive:Union[str, List[str]], hist:bool=False, bin_size:int=5):
+    def posterior_reid_ai(self, qids:list[str], sensitive:Union[str, List[str]]):
         """
-        Calculate the expected posterior vulnerability of probabilistic re-identification and attribute inference attack for a given dataset. If hist is True, it provides also the histogram of individual posterior vulnerabilities (i.e., the posterior of each person in the dataset).
+        Posterior vulnerability of probabilistic re-identification and attribute inference attacks.
+        Obs: It assumes the dataset is sorted by QID columns + sensitive attribute columsn.
 
         Parameters:
             - qids (list, optional): List of quasi-identifiers. If not provided, all columns will be used.
-
-
-            - hist (bool, optional): Whether to generate the histogram of posterior vulnerabilities. Default is False.
-            - bin_size (int, optional): Bin size for the histogram if hist is True. Default is 5.
+            - sensitive (str, list): A single or a list of sensitive attributes.
 
         Returns:
-            (float, float): If hist is False, return the posterior vulnerability for re-identification and attribute inference, respectively.
-            ((float, tuple), (float, tuple)): If hist is True, return two pairs (float, tuple), containing the posterior vulnerability and the histogram for re-identification and attribute inference, respectively. The ith element in the histogram is the # people with vulnerability in the bin [i * 100/bin_size, (i+1)*bin_size).
+            - (float, dict[str, float]): Tuple containing, the posterior vulnerability for re-identification attack and a dictionary containing the posterior vulnerability for each sensitive attribute (keys are sensitive attribute names and values are posterior vulnerabilities).
         """
         self._check_qids(qids)
         self._check_sensitive(sensitive)
