@@ -90,9 +90,6 @@ class Attack():
         # Groupby by qids
         _, counts = np.unique(self.data.dataset[:, qids_idx], axis=0, return_counts=True)
         posterior = len(counts)/self.data.num_rows
-    
-        if hist:
-            return privattacks.util.hist(counts, bin_size), posterior
         
         return posterior
     
