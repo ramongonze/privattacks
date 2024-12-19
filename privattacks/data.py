@@ -17,8 +17,8 @@ class Data:
 
     Attributes:
         - dataset (numpy.ndarray): Numpy matrix of integers.
-        - num_rows (int): Number of rows (records) in the dataset.
-        - num_cols (int): Number of columns (attributes) in the dataset.
+        - n_rows (int): Number of rows (records) in the dataset.
+        - n_cols (int): Number of columns (attributes) in the dataset.
         - cols (list): List of column names in the dataset. The same order as the dataset matrix.
         - int2value (list[list[any]]): Reference list for converting integer values in the new NumPy matrix back to the original column domains. Each element corresponds to a column in `cols` and contains the original values in the order they were mapped to integers (e.g., first value → 0, second → 1, etc.). Example: If columns A and B had values `['apple', 'banana', 'cherry']` and `['fig', 'grape', 'kiwi']`, respectively, and were converted as `apple -> 0, banana -> 1, cherry -> 2` and `fig -> 0, grape -> 1, kiwi -> 2`, then `int2value = [['apple', 'banana', 'cherry'], ['fig', 'grape', 'kiwi']]`.
     """
@@ -56,8 +56,8 @@ class Data:
             raise TypeError("Either file_name or dataframe must be given")
         
         dataframe.replace(np.nan, na_values, inplace=True)
-        self.num_rows = dataframe.shape[0]
-        self.num_cols = dataframe.shape[1]
+        self.n_rows = dataframe.shape[0]
+        self.n_cols = dataframe.shape[1]
         self.cols = dataframe.columns.to_list()
         self.dataset, self.int2value = self.convert_df_to_np(dataframe)
         self._sort_dataset()
@@ -115,7 +115,7 @@ class Data:
         """
         # Sort by all columns in ascending order (lexicographical sort)
         # Provide columns in reverse order of priority
-        keys = tuple(self.dataset[:, i] for i in np.arange(self.num_cols - 1, -1, -1))
+        keys = tuple(self.dataset[:, i] for i in np.arange(self.n_cols - 1, -1, -1))
         sorted_indices = np.lexsort(keys)
 
         # Use the indices to sort the array
