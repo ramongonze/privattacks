@@ -148,25 +148,31 @@ class Attack():
             # Go through all partitions and find the most frequent element
             for i in np.arange(self.data.n_rows):
                 # Check if the current partition has finished
-                new_partition = (i == partition_starts[next_partition])
+                new_partition = (next_partition < n_partitions and i == partition_starts[next_partition])
 
-                cur_count += 1
-                max_count = max(max_count, cur_count)
-
-                # If we've started a new partition or reach the end of the last partition
-                if new_partition or i == self.data.n_rows-1:
+                if new_partition:
+                    next_partition += 1
+                    
+                    # The most frequent element in the previous partition is in max_count
+                    max_count = max(max_count, cur_count)
                     posterior += max_count
 
-                    # Reset pointers
-                    next_partition = min(next_partition+1, n_partitions-1)
                     cur_value = sensitive_values[i]
-                    max_count, cur_count = 0, 0
+                    cur_count, max_count = 1, 1
+                else:
+                    if cur_value == sensitive_values[i]:
+                        cur_count += 1
+                    else:
+                        max_count = max(max_count, cur_count)
+                        cur_value = sensitive_values[i]
+                        cur_count = 1
                 
-                # If the current value has changed or if we've started a new partition
-                if cur_value != sensitive_values[i] or new_partition:
-                    cur_value = sensitive_values[i]
-                    cur_count = 0
-                
+                # If it's the last element, update the max_count and
+                # add the adversary's success for the last partition.
+                if i == self.data.n_rows-1:
+                    max_count = max(max_count, cur_count)
+                    posterior += max_count
+
             posteriors[sens] = posterior/self.data.n_rows
 
         return posteriors        
@@ -199,7 +205,7 @@ class Attack():
         # Re-identification
         posterior_reid = n_partitions/self.data.n_rows
 
-        # Attribute Inference
+        # Attribute inference
         posteriors_ai = {}
         for sens in sensitive:
             sensitive_idx = self.data.col2int(sens) # Sensitive column index
@@ -210,25 +216,31 @@ class Attack():
             # Go through all partitions and find the most frequent element
             for i in np.arange(self.data.n_rows):
                 # Check if the current partition has finished
-                new_partition = (i == partition_starts[next_partition])
+                new_partition = (next_partition < n_partitions and i == partition_starts[next_partition])
 
-                cur_count += 1
-                max_count = max(max_count, cur_count)
-
-                # If we've started a new partition or reach the end of the last partition
-                if new_partition or i == self.data.n_rows-1:
+                if new_partition:
+                    next_partition += 1
+                    
+                    # The most frequent element in the previous partition is in max_count
+                    max_count = max(max_count, cur_count)
                     posterior += max_count
 
-                    # Reset pointers
-                    next_partition = min(next_partition+1, n_partitions-1)
                     cur_value = sensitive_values[i]
-                    max_count, cur_count = 0, 0
+                    cur_count, max_count = 1, 1
+                else:
+                    if cur_value == sensitive_values[i]:
+                        cur_count += 1
+                    else:
+                        max_count = max(max_count, cur_count)
+                        cur_value = sensitive_values[i]
+                        cur_count = 1
                 
-                # If the current value has changed or if we've started a new partition
-                if cur_value != sensitive_values[i] or new_partition:
-                    cur_value = sensitive_values[i]
-                    cur_count = 0
-                
+                # If it's the last element, update the max_count and
+                # add the adversary's success for the last partition.
+                if i == self.data.n_rows-1:
+                    max_count = max(max_count, cur_count)
+                    posterior += max_count
+
             posteriors_ai[sens] = posterior/self.data.n_rows
 
         return posterior_reid, posteriors_ai
