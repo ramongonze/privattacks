@@ -123,11 +123,11 @@ class Attack():
         if histogram:
             # Create an array with the posterior vulnerability of each record
             ind_posteriors = []
-            partition_starts = np.append(partition_starts, len(partition_starts))
+            partition_starts = np.append(partition_starts, self.data.n_rows)
             for i in np.arange(len(partition_starts)-1):
                 partition_size = partition_starts[i+1] - partition_starts[i]
                 ind_posteriors += [1/partition_size] * partition_size
-            
+
             hist = privattacks.util.create_histogram(ind_posteriors, bin_size)
             return posterior, hist
         
@@ -190,6 +190,7 @@ class Attack():
                     # The most frequent element in the previous partition is in max_count
                     max_count = max(max_count, cur_count)
                     posterior += max_count
+
                     if histogram and next_partition >= 2:
                         partition_size = partition_starts[next_partition-1] - partition_starts[next_partition-2]
                         ind_posteriors += [max_count/partition_size] * partition_size
@@ -211,7 +212,7 @@ class Attack():
                     posterior += max_count
                     if histogram:
                         # Last partition
-                        partition_size = len(partition_starts) - partition_starts[-1]
+                        partition_size = self.data.n_rows - partition_starts[-1]
                         ind_posteriors += [max_count/partition_size] * partition_size
 
             posteriors[sens] = posterior/self.data.n_rows
@@ -263,7 +264,7 @@ class Attack():
         if histogram:
             # Create an array with the posterior vulnerability of each record
             ind_posteriors = []
-            partition_starts = np.append(partition_starts, len(partition_starts))
+            partition_starts = np.append(partition_starts, self.data.n_rows)
             for i in np.arange(len(partition_starts)-1):
                 partition_size = partition_starts[i+1] - partition_starts[i]
                 ind_posteriors += [1/partition_size] * partition_size
@@ -271,6 +272,7 @@ class Attack():
             hist_reid = privattacks.util.create_histogram(ind_posteriors, bin_size)
 
             # Reset the array for attribute inference's histogram
+            partition_starts = partition_starts[:-1]
             ind_posteriors = []
 
         # Attribute inference
@@ -314,7 +316,7 @@ class Attack():
                     posterior += max_count
                     if histogram:
                         # Last partition
-                        partition_size = len(partition_starts) - partition_starts[-1]
+                        partition_size = self.data.n_rows - partition_starts[-1]
                         ind_posteriors += [max_count/partition_size] * partition_size
 
             posteriors_ai[sens] = posterior/self.data.n_rows
