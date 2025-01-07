@@ -117,7 +117,7 @@ class Attack():
         posterior = n_partitions/self.data.n_rows
         
         if histogram:
-            # Create an array with all the individual posterior vulnerabilities
+            # Create an array with the posterior vulnerability of each record
             ind_posteriors = []
             partition_starts = np.append(partition_starts, len(partition_starts))
             for i in np.arange(len(partition_starts)-1):
@@ -129,7 +129,7 @@ class Attack():
         
         return posterior
     
-    def posterior_ai(self, qids:list[str], sensitive:Union[str, List[str]]):
+    def posterior_ai(self, qids:list[str], sensitive:Union[str, List[str]], histogram=False, bin_size=1):
         """
         Posterior vulnerability of probabilistic attribute inference attack.
         Obs: It assumes the dataset is sorted by QID columns + sensitive attribute columns.
@@ -137,9 +137,12 @@ class Attack():
         Parameters:
             - qids (list): List of quasi-identifiers. If not provided, all columns will be used.
             - sensitive (str, list[str]): A single or a list of sensitive attributes.
+            - histogram (bool, optional): Whether to generate a histogram of individual posterior vulnerabilities. Default is False.
+            - bin_size (int, optional): Bin size for the histogram if hist is True. Default is 1.
 
         Returns:
-            - dict[str, float]: Dictionary containing the posterior vulnerability for each sensitive attribute (keys are sensitive attribute names and values are posterior vulnerabilities).
+            - dict[str, float] or (dict[str, float], dict): If histogram is True, returns a pair with the posterior vulnerability and a dictionary containing the histogram of individual posterior vulnerabilities for each sensitive attribute.
+            If histogram is False, returns a dictionary containing the posterior vulnerability for each sensitive attribute.
         """
         self._check_qids(qids)
         self._check_sensitive(sensitive)
@@ -155,6 +158,10 @@ class Attack():
         n_partitions = len(partition_starts)
 
         # Attribute inference
+        if histogram:
+            # Create an array with the posterior vulnerability of each record
+            ind_posteriors = []
+            
         posteriors = {}
         for sens in sensitive:
             sensitive_idx = self.data.col2int(sens) # Sensitive column index
@@ -162,6 +169,7 @@ class Attack():
 
             cur_value = -2
             next_partition, cur_count, max_count, posterior = 0, 0, 0, 0
+
             # Go through all partitions and find the most frequent element
             for i in np.arange(self.data.n_rows):
                 # Check if the current partition has finished
@@ -173,6 +181,9 @@ class Attack():
                     # The most frequent element in the previous partition is in max_count
                     max_count = max(max_count, cur_count)
                     posterior += max_count
+                    if histogram and next_partition >= 2:
+                        partition_size = partition_starts[next_partition-1] - partition_starts[next_partition-2]
+                        ind_posteriors += [max_count/partition_size] * partition_size
 
                     cur_value = sensitive_values[i]
                     cur_count, max_count = 1, 1
@@ -189,10 +200,18 @@ class Attack():
                 if i == self.data.n_rows-1:
                     max_count = max(max_count, cur_count)
                     posterior += max_count
+                    if histogram:
+                        # Last partition
+                        partition_size = len(partition_starts) - partition_starts[-1]
+                        ind_posteriors += [max_count/partition_size] * partition_size
 
             posteriors[sens] = posterior/self.data.n_rows
 
-        return posteriors        
+        if histogram:
+            hist = privattacks.util.create_histogram(ind_posteriors, bin_size)
+            return posteriors, hist
+        
+        return posteriors
 
     def posterior_reid_ai(self, qids:list[str], sensitive:Union[str, List[str]]):
         """
