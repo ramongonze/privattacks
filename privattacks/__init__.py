@@ -2,4 +2,4 @@
 
 from privattacks.data import Data
 from privattacks.attacks import Attack
-from privattacks.util import hist
+from privattacks.util import create_histogram

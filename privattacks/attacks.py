@@ -7,6 +7,8 @@ import multiprocessing
 import itertools as it
 from typing import Union, List, Tuple, Dict
 
+import privattacks.util
+
 class Attack():
 
     def __init__(self, data:privattacks.Data):
@@ -93,15 +95,18 @@ class Attack():
             posteriors[att] = int(counts.max()) / self.data.n_rows
         return posteriors
 
-    def posterior_reid(self, qids:list[str]):
+    def posterior_reid(self, qids:list[str], histogram=False, bin_size=1):
         """
         Posterior vulnerability of probabilistic re-identification attack.
 
         Parameters:
             - qids (list[str]): List of quasi-identifiers.
+            - histogram (bool, optional): Whether to generate a histogram of individual posterior vulnerabilities. Default is False.
+            - bin_size (int, optional): Bin size for the histogram if hist is True. Default is 1.
 
         Returns:
-            - float: Posterior vulnerability.
+            - float or (float, dict): If histogram is True, returns a pair with the posterior vulnerability and a dictionary containing the histogram of individual posterior vulnerabilities.
+            If histogram is False, returns the posterior vulnerability.
         """
         self._check_qids(qids)
         qids_idx = [self.data.col2int(att) for att in qids]
@@ -109,8 +114,20 @@ class Attack():
         # Groupby by qids
         _, partition_starts = np.unique(self.data.dataset[:, qids_idx], axis=0, return_index=True)
         n_partitions = len(partition_starts)
+        posterior = n_partitions/self.data.n_rows
         
-        return n_partitions/self.data.n_rows
+        if histogram:
+            # Create an array with all the individual posterior vulnerabilities
+            ind_posteriors = []
+            partition_starts = np.append(partition_starts, len(partition_starts))
+            for i in np.arange(len(partition_starts)-1):
+                partition_size = partition_starts[i+1] - partition_starts[i]
+                ind_posteriors += [1/partition_size] * partition_size
+            
+            hist = privattacks.util.create_histogram(ind_posteriors, bin_size)
+            return posterior, hist
+        
+        return posterior
     
     def posterior_ai(self, qids:list[str], sensitive:Union[str, List[str]]):
         """
