@@ -16,12 +16,12 @@ class Attack():
         Initialize an instance of the Attack class.
 
         Parameters:
-            - data (privattacks.Data): An instance of the Data class from the privattacks module. 
+            data (privattacks.Data): An instance of the Data class from the privattacks module. 
             This object represents the dataset to be used for analyzing vulnerabilities 
             to probabilistic re-identification and attribute inference attacks.
 
         Attributes:
-            - data (privattacks.Data): Stores the dataset object, providing access to 
+            data (privattacks.Data): Stores the dataset object, providing access to 
             the dataset's attributes, such as columns (`cols`) and number of rows 
             (`n_rows`).
         """
@@ -79,10 +79,10 @@ class Attack():
         Prior vulnerability of probabilistic attribute inference attack.
         
         Parameters:
-            - sensitive (str, list[str]): A single or a list of sensitive attributes.
+            sensitive (str, list[str]): A single or a list of sensitive attributes.
 
         Returns:
-            - dict[str, float]: Dictionary containing the prior vulnerability for each sensitive attribute (keys are sensitive attribute names and values are posterior vulnerabilities).
+            dict[str, float]: Dictionary containing the prior vulnerability for each sensitive attribute (keys are sensitive attribute names and values are posterior vulnerabilities).
         """
         self._check_sensitive(sensitive)
         if isinstance(sensitive, str):
@@ -100,17 +100,20 @@ class Attack():
         Posterior vulnerability of probabilistic re-identification attack.
 
         Parameters:
-            - qids (list[str]): List of quasi-identifiers.
-            - histogram (bool, optional): Whether to generate a histogram of individual posterior vulnerabilities. Default is False.
-            - bin_size (int, optional): Bin size for the histogram if hist is True. Default is 1.
+            qids (list[str]): List of quasi-identifiers.
+            histogram (bool, optional): Whether to generate a histogram of individual posterior vulnerabilities. Default is False.
+            bin_size (int, optional): Bin size for the histogram if hist is True. Default is 1.
 
         Returns:
-            - float or (float, dict): If histogram is False, returns the posterior vulnerability.
-            If histogram is True, returns a pair (<posterior vulnerability>, <histogram>).
-            Example of output when histogram is False:
-                0.75
-            Example of output when histogram is True:
-                (0.75, {'[0,0.50)':7, '[0.50,1]':13}),
+            float or (float, dict): If histogram is False, returns the posterior vulnerability.
+                If histogram is True, returns a pair (<posterior vulnerability>, <histogram>).
+                Example of output when histogram is False::
+                    
+                    0.75
+
+                Example of output when histogram is True::
+                
+                    (0.75, {'[0,0.50)':7, '[0.50,1]':13})
         """
         self._check_qids(qids)
         qids_idx = [self.data.col2int(att) for att in qids]
@@ -139,19 +142,24 @@ class Attack():
         Obs: It assumes the dataset is sorted by QID columns + sensitive attribute columns.
 
         Parameters:
-            - qids (list): List of quasi-identifiers. If not provided, all columns will be used.
-            - sensitive (str, list[str]): A single or a list of sensitive attributes.
-            - histogram (bool, optional): Whether to generate a histogram of individual posterior vulnerabilities. Default is False.
-            - bin_size (int, optional): Bin size for the histogram if hist is True. Default is 1.
+            qids (list): List of quasi-identifiers. If not provided, all columns will be used.
+            sensitive (str, list[str]): A single or a list of sensitive attributes.
+            histogram (bool, optional): Whether to generate a histogram of individual posterior vulnerabilities. Default is False.
+            bin_size (int, optional): Bin size for the histogram if hist is True. Default is 1.
 
         Returns:
-            - dict[str, float] or (dict[str, float], dict): If histogram is False, returns a dictionary containing the posterior vulnerability for each sensitive attribute.
-            If histogram is True, returns a pair (<posterior vulnerability>, <histogram for each sensitive attribute>).
-            Example of output when histogram is False:
-                {'disease': 0.3455, 'income':0.7}
-            Example of ouput when histogram is True:
-                (({'disease': 0.3455, 'income':0.7},
-                 {'disease': {'[0,0.50)':15, '[0.50,1]':5}, 'income':{'[0,0.50)':12, '[0.50,1]':8}}))
+            dict[str, float] or (dict[str, float], dict):
+                If histogram is False, returns a dictionary containing the posterior vulnerability for each sensitive attribute.
+                If histogram is True, returns a pair ``(<posterior vulnerability>, <histogram for each sensitive attribute>)``.
+                Example of output when histogram is False::
+                
+                    {'disease': 0.3455, 'income':0.7}
+
+                Example of ouput when histogram is True::
+                
+                    ({'disease': 0.3455, 'income':0.7},
+                     {'disease': {'[0,0.50)':15, '[0.50,1]':5},
+                      'income':{'[0,0.50)':12, '[0.50,1]':8}})
         """
         self._check_qids(qids)
         self._check_sensitive(sensitive)
@@ -229,21 +237,23 @@ class Attack():
         Obs: It assumes the dataset is sorted by QID columns + sensitive attribute columsn.
 
         Parameters:
-            - qids (list, optional): List of quasi-identifiers. If not provided, all columns will be used.
-            - sensitive (str, list[str]): A single or a list of sensitive attributes.
-            - histogram (bool, optional): Whether to generate a histogram of individual posterior vulnerabilities. Default is False.
-            - bin_size (int, optional): Bin size for the histogram if hist is True. Default is 1.
+            qids (list, optional): List of quasi-identifiers. If not provided, all columns will be used.
+            sensitive (str, list[str]): A single or a list of sensitive attributes.
+            histogram (bool, optional): Whether to generate a histogram of individual posterior vulnerabilities. Default is False.
+            bin_size (int, optional): Bin size for the histogram if hist is True. Default is 1.
 
         Returns:
-            - (float, dict[str, float]) or ((float, dict), (dict[str, float], dict[str, dict[str, int]])): If histogram is False, returns a pair (<posterior re-identification>, <posterior attribute inference for each sensitive attribute (dictionary)>). If histogram is True, returns a pair containing the results for re-identification and attribute inference. The re-identification results is a pair (<posterior vulnerability>, <histogram>) and attribute inference results is a pair (<posterior vulnerability>, <histogram for each sensitive attribute>).
-            Example of output when histogram is False:
+            (float, dict[str, float]) or ((float, dict), (dict[str, float], dict[str, dict[str, int]])):
+            If histogram is False, returns a pair ``(<posterior re-identification>, <posterior attribute inference for each sensitive attribute (dictionary)>)``. If histogram is True, returns a pair containing the results for re-identification and attribute inference. The re-identification results is a pair ``(<posterior vulnerability>, <histogram>)`` and attribute inference results is a pair ``(<posterior vulnerability>, <histogram for each sensitive attribute>)``.
+            Example of output when histogram is False::
+            
                 (0.75, {'disease': 0.3455, 'income':0.7})
-            Example of ouput when histogram is True:
-                (
-                (0.75, {'[0,0.50)':7, '[0.50,1]':13}),
-                ({'disease': 0.3455, 'income':0.7},
-                 {'disease': {'[0,0.50)':15, '[0.50,1]':5}, 'income':{'[0,0.50)':12, '[0.50,1]':8}})
-                )
+
+            Example of ouput when histogram is True::
+            
+                ((0.75, {'[0,0.50)':7, '[0.50,1]':13}),
+                 ({'disease': 0.3455, 'income':0.7},
+                  {'disease': {'[0,0.50)':15, '[0.50,1]':5}, 'income':{'[0,0.50)':12, '[0.50,1]':8}}))
         """
         self._check_qids(qids)
         self._check_sensitive(sensitive)
@@ -331,15 +341,15 @@ class Attack():
         """Posterior vulnerability of probabilistic re-identification attack for subsets of qids. The attack is run for a subset of the powerset of qids, defined by parameters min_size and max_size. 
         
         Parameters:
-            - qids (list[str]): List of quasi-identifiers.
-            - min_size (int): Minimum size of subset of qids.
-            - max_size (int): Maximum size of subset of qids.
-            - save_file (str, optional): File name to save the results. They will be saved in CSV format.
-            - n_processes (int, optional): Number of processes to run the method in parallel using multiprocessing package. Default is 1.
-            - verbose (bool, optional): Show the progress. Default is False.
+            qids (list[str]): List of quasi-identifiers.
+            min_size (int): Minimum size of subset of qids.
+            max_size (int): Maximum size of subset of qids.
+            save_file (str, optional): File name to save the results. They will be saved in CSV format.
+            n_processes (int, optional): Number of processes to run the method in parallel using multiprocessing package. Default is 1.
+            verbose (bool, optional): Show the progress. Default is False.
 
         Returns:
-            - (pandas.DataFrame): A pandas DataFrame containing columns "n_qids", "qids" and "posterior_reid", representing the number of qids in the combination, the actual combination and the posterior vulnerability for the given qid combination, respectively.
+            (pandas.DataFrame): A pandas DataFrame containing columns "n_qids", "qids" and "posterior_reid", representing the number of qids in the combination, the actual combination and the posterior vulnerability for the given qid combination, respectively.
         """
         self._check_qids(qids)
 
@@ -381,16 +391,16 @@ class Attack():
         """Posterior vulnerability of probabilistic attribute inference attack for subsets of qids. The attack is run for a subset of the powerset of qids, defined by parameters min_size and max_size.
         
         Parameters:
-            - qids (list[str]): List of quasi-identifiers.
-            - sensitive (str, list[str]): A single or a list of sensitive attributes.
-            - min_size (int): Minimum size of subset of qids.
-            - max_size (int): Maximum size of subset of qids.
-            - save_file (str, optional): File name to save the results. They will be saved in CSV format.
-            - n_processes (int, optional): Number of processes to run the method in parallel using multiprocessing package. Default is 1.
-            - verbose (bool, optional): Show the progress. Default is False.
+            qids (list[str]): List of quasi-identifiers.
+            sensitive (str, list[str]): A single or a list of sensitive attributes.
+            min_size (int): Minimum size of subset of qids.
+            max_size (int): Maximum size of subset of qids.
+            save_file (str, optional): File name to save the results. They will be saved in CSV format.
+            n_processes (int, optional): Number of processes to run the method in parallel using multiprocessing package. Default is 1.
+            verbose (bool, optional): Show the progress. Default is False.
 
         Returns:
-            - (pandas.DataFrame): A pandas DataFrame containing columns "n_qids", "qids" and one column "posterior_S" for every sensitive attribute S, representing, respectively, the number of qids in the combination, the actual combination and the posterior vulnerability for each sensitive attribute.
+            (pandas.DataFrame): A pandas DataFrame containing columns "n_qids", "qids" and one column "posterior_S" for every sensitive attribute S, representing, respectively, the number of qids in the combination, the actual combination and the posterior vulnerability for each sensitive attribute.
         """
         self._check_qids(qids)
         self._check_sensitive(sensitive)
@@ -440,16 +450,16 @@ class Attack():
         """Posterior vulnerability of probabilistic re-identification and attribute inference attack for subsets of qids. The attack is run for a subset of the powerset of qids, defined by parameters min_size and max_size.
         
         Parameters:
-            - qids (list[str]): List of quasi-identifiers.
-            - sensitive (str, list[str]): A single or a list of sensitive attributes.
-            - min_size (int): Minimum size of subset of qids.
-            - max_size (int): Maximum size of subset of qids.
-            - save_file (str, optional): File name to save the results. They will be saved in CSV format.
-            - n_processes (int, optional): Number of processes to run the method in parallel using multiprocessing package. Default is 1.
-            - verbose (bool, optional): Show the progress. Default is False.
+            qids (list[str]): List of quasi-identifiers.
+            sensitive (str, list[str]): A single or a list of sensitive attributes.
+            min_size (int): Minimum size of subset of qids.
+            max_size (int): Maximum size of subset of qids.
+            save_file (str, optional): File name to save the results. They will be saved in CSV format.
+            n_processes (int, optional): Number of processes to run the method in parallel using multiprocessing package. Default is 1.
+            verbose (bool, optional): Show the progress. Default is False.
 
         Returns:
-            - (pandas.DataFrame): A pandas DataFrame containing columns "n_qids", "qids", "posterior_reid", and one column "posterior_S" for every sensitive attribute S, representing, respectively, the number of qids in the combination, the actual combination, the posterior vulnerability for re-identification and the posterior vulnerability for each sensitive attribute.
+            (pandas.DataFrame): A pandas DataFrame containing columns "n_qids", "qids", "posterior_reid", and one column "posterior_S" for every sensitive attribute S, representing, respectively, the number of qids in the combination, the actual combination, the posterior vulnerability for re-identification and the posterior vulnerability for each sensitive attribute.
         """
         self._check_qids(qids)
         self._check_sensitive(sensitive)
