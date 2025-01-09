@@ -179,7 +179,7 @@ class Attack():
         # Attribute inference
         if histogram:
             # Create an array with the posterior vulnerability of each record
-            ind_posteriors = []
+            ind_posteriors = {sens:[] for sens in sensitive}
             
         posteriors = {}
         for sens in sensitive:
@@ -203,7 +203,7 @@ class Attack():
 
                     if histogram and next_partition >= 2:
                         partition_size = partition_starts[next_partition-1] - partition_starts[next_partition-2]
-                        ind_posteriors += [max_count/partition_size] * partition_size
+                        ind_posteriors[sens] += [max_count/partition_size] * partition_size
 
                     cur_value = sensitive_values[i]
                     cur_count, max_count = 1, 1
@@ -223,12 +223,12 @@ class Attack():
                     if histogram:
                         # Last partition
                         partition_size = self.data.n_rows - partition_starts[-1]
-                        ind_posteriors += [max_count/partition_size] * partition_size
+                        ind_posteriors[sens] += [max_count/partition_size] * partition_size
 
             posteriors[sens] = posterior/self.data.n_rows
 
         if histogram:
-            hist = privattacks.util.create_histogram(ind_posteriors, bin_size)
+            hist = {sens:privattacks.util.create_histogram(ind_posteriors[sens], bin_size) for sens in sensitive}
             return posteriors, hist
         
         return posteriors
@@ -286,7 +286,7 @@ class Attack():
 
             # Reset the array for attribute inference's histogram
             partition_starts = partition_starts[:-1]
-            ind_posteriors = []
+            ind_posteriors = {sens:[] for sens in sensitive}
 
         # Attribute inference
         posteriors_ai = {}
@@ -310,7 +310,7 @@ class Attack():
                     
                     if histogram and next_partition >= 2:
                         partition_size = partition_starts[next_partition-1] - partition_starts[next_partition-2]
-                        ind_posteriors += [max_count/partition_size] * partition_size
+                        ind_posteriors[sens] += [max_count/partition_size] * partition_size
 
                     cur_value = sensitive_values[i]
                     cur_count, max_count = 1, 1
@@ -330,12 +330,12 @@ class Attack():
                     if histogram:
                         # Last partition
                         partition_size = self.data.n_rows - partition_starts[-1]
-                        ind_posteriors += [max_count/partition_size] * partition_size
+                        ind_posteriors[sens] += [max_count/partition_size] * partition_size
 
             posteriors_ai[sens] = posterior/self.data.n_rows
 
         if histogram:
-            hist_ai = privattacks.util.create_histogram(ind_posteriors, bin_size)
+            hist_ai = {sens:privattacks.util.create_histogram(ind_posteriors[sens], bin_size) for sens in sensitive}
             return (posterior_reid, hist_reid), (posteriors_ai, hist_ai)
         
         return posterior_reid, posteriors_ai
