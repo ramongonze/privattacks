@@ -120,6 +120,7 @@ class Attack():
         
         # Groupby by qids
         _, partition_starts = np.unique(self.data.dataset[:, qids_idx], axis=0, return_index=True)
+        partition_starts.sort()
         n_partitions = len(partition_starts)
         posterior = n_partitions/self.data.n_rows
         
@@ -172,6 +173,7 @@ class Attack():
         
         # Find unique qid_values, partition starts (indexes) and partition counts
         _, partition_starts = np.unique(qid_values, axis=0, return_index=True)
+        partition_starts.sort()
         n_partitions = len(partition_starts)
 
         # Attribute inference
@@ -266,6 +268,7 @@ class Attack():
         
         # Find unique qid_values, partition starts (indexes) and partition counts
         _, partition_starts = np.unique(qid_values, axis=0, return_index=True)
+        partition_starts.sort()
         n_partitions = len(partition_starts)
 
         # Re-identification
