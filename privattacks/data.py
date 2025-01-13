@@ -62,9 +62,9 @@ class Data:
         self.cols = dataframe.columns.to_list()
         self.dataset, self.int2value = self.convert_df_to_np(dataframe)
 
-    def col2int(self, att):
-        """Index of columns in the dataset numpy matrix."""
-        return self.cols.index(att)
+    def col2int(self, col):
+        """Index of a column in the dataset numpy matrix."""
+        return self.cols.index(col)
 
     def convert_df_to_np(self, dataframe:pd.DataFrame) -> np.ndarray:
         """Converts a pandas dataframe to a numpy.ndarray. The matrix contains integers in "standard" type, i.e., for all column `c`, the original values from the domain of `c` are converted to integers from 0 to \|`c`\|.
