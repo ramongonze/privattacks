@@ -51,32 +51,31 @@ class Attack():
                 raise ValueError(f"The sensitive attribute '{att}' is not in the dataset.")
         return sensitive
                 
-    def _sort_dataset(self, qids:list[str]):
-        """Sort dataset by qid values. It's an assumption for attack methods in class Attack.
-        """
-        qids_idx = [self.data.cols.index(qid) for qid in qids][::-1]
+    def _sort_dataset(self, cols:list[str]):
+        """Sort dataset by a given set of columns. Returns a sorted copy of the dataset (only the given columns)."""
+        cols_idx = [self.data.col2int(col) for col in cols]
         
         # Sort in ascending order (lexicographical sort) 
         # The order must be reversed to use numpy.lexsort (order of priority)
-        keys = tuple(self.data.dataset[:, i] for i in qids_idx)
+        keys = tuple(self.data.dataset[:, i] for i in cols_idx[::-1])
         sorted_indices = np.lexsort(keys)
 
         # Use the indices to sort the array
-        self.data.dataset = self.data.dataset[sorted_indices]
+        return self.data.dataset[sorted_indices][:,cols_idx].copy()
 
     def _partial_result_reid(self, qids_subset:list[str]):
         """Required by multiprocessing package in order to use imap_unordered()."""
-        return (qids_subset, self.posterior_reid(qids_subset))
+        return (list(qids_subset), self.posterior_reid(list(qids_subset)))
 
     def _partial_result_ai(self, params):
         """Required by multiprocessing package in order to use imap_unordered()."""
         qids_subset, sensitive = params
-        return (qids_subset, self.posterior_ai(qids_subset, sensitive))
+        return (list(qids_subset), self.posterior_ai(list(qids_subset), sensitive))
     
     def _partial_result_reid_ai(self, params):
         """Required by multiprocessing package in order to use imap_unordered()."""
         qids_subset, sensitive = params
-        return (qids_subset, self.posterior_reid_ai(qids_subset, sensitive))
+        return (list(qids_subset), self.posterior_reid_ai(list(qids_subset), sensitive))
 
     def prior_reid(self):
         """
@@ -102,10 +101,10 @@ class Attack():
             sensitive = [sensitive]
 
         posteriors = dict()
-        for att in sensitive:
-            sensitive_idx = self.data.col2int(att)
+        for sens in sensitive:
+            sensitive_idx = self.data.col2int(sens)
             _, counts = np.unique(self.data.dataset[:, sensitive_idx], return_counts=True)
-            posteriors[att] = int(counts.max()) / self.data.n_rows
+            posteriors[sens] = int(counts.max()) / self.data.n_rows
         return posteriors
 
     def posterior_reid(self, qids:list[str], histogram=False, bin_size=1):
@@ -129,12 +128,12 @@ class Attack():
                     (0.75, {'[0,0.50)':7, '[0.50,1]':13})
         """
         self._check_qids(qids)
-        self._sort_dataset(qids)
-
-        qids_idx = [self.data.col2int(att) for att in qids]
+        cols = qids
+        dataset = self._sort_dataset(qids).copy()
+        qids_idx = [cols.index(qid) for qid in qids]
         
         # Groupby by qids
-        _, partition_starts = np.unique(self.data.dataset[:, qids_idx], axis=0, return_index=True)
+        _, partition_starts = np.unique(dataset[:, qids_idx], axis=0, return_index=True)
         partition_starts.sort()
         n_partitions = len(partition_starts)
         posterior = n_partitions/self.data.n_rows
@@ -178,19 +177,19 @@ class Attack():
         """
         self._check_qids(qids)
         self._check_sensitive(sensitive)
-        self._sort_dataset(qids)
-        
+
         if isinstance(sensitive, str):
             sensitive = [sensitive]
 
-        qids_idx = [self.data.col2int(att) for att in qids] # Qid column indices
-        qid_values = self.data.dataset[:, qids_idx] # Partition identifiers
+        cols = qids + sensitive
+        dataset = self._sort_dataset(cols)
         
-
+        qids_idx = [cols.index(qid) for qid in qids] # Qid column indices
+        qid_values = dataset[:, qids_idx] # Partition identifiers
+        
         # Find unique qid_values, partition starts (indexes) and partition counts
         _, partition_starts = np.unique(qid_values, axis=0, return_index=True)
         partition_starts.sort()
-        n_partitions = len(partition_starts)
 
         # Attribute inference
         if histogram:
@@ -199,8 +198,8 @@ class Attack():
         
         posteriors = {}
         for sens in sensitive:
-            sensitive_idx = self.data.col2int(sens) # Sensitive column index
-            sensitive_values = self.data.dataset[:, sensitive_idx] # Sensitive attribute columns
+            sensitive_idx = cols.index(sens) # Sensitive column index
+            sensitive_values = dataset[:, sensitive_idx] # Sensitive attribute columns
 
             posterior = 0
             for i in np.arange(len(partition_starts)):
@@ -254,15 +253,17 @@ class Attack():
         """
         self._check_qids(qids)
         self._check_sensitive(sensitive)
-        self._sort_dataset(qids)
-        
+            
         if isinstance(sensitive, str):
             sensitive = [sensitive]
-
-        qids_idx = [self.data.col2int(att) for att in qids] # Qid column indices
-        qid_values = self.data.dataset[:, qids_idx] # Partition identifiers
         
-        # Find unique qid_values, partition starts (indexes) and partition counts
+        cols = qids + sensitive
+        dataset = self._sort_dataset(cols)
+        qids_idx = [cols.index(qid) for qid in qids] # Qid column indices
+
+        qid_values = dataset[:, qids_idx] # Partition identifiers
+
+        # Find unique , partition starts (indexes) and partition counts
         _, partition_starts = np.unique(qid_values, axis=0, return_index=True)
         partition_starts.sort()
         n_partitions = len(partition_starts)
@@ -287,8 +288,8 @@ class Attack():
         # Attribute inference
         posteriors_ai = {}
         for sens in sensitive:
-            sensitive_idx = self.data.col2int(sens) # Sensitive column index
-            sensitive_values = self.data.dataset[:, sensitive_idx] # Sensitive attribute columns
+            sensitive_idx = cols.index(sens) # Sensitive column index
+            sensitive_values = dataset[:, sensitive_idx] # Sensitive attribute columns
 
             posterior = 0
             for i in np.arange(len(partition_starts)):
