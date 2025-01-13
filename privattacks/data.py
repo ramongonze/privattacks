@@ -61,7 +61,6 @@ class Data:
         self.n_cols = dataframe.shape[1]
         self.cols = dataframe.columns.to_list()
         self.dataset, self.int2value = self.convert_df_to_np(dataframe)
-        self._sort_dataset()
 
     def col2int(self, att):
         """Index of columns in the dataset numpy matrix."""
@@ -109,16 +108,3 @@ class Data:
         """
         _, extension = os.path.splitext(file_name)
         return extension.lower()
-
-    def _sort_dataset(self):
-        """Sorts the dataset by all columns. It's an assumption for attack methods in class Attack.
-
-        Obs: Once the dataset is sorted for all columns, it doesn't need to be sorted anymore for subset of columns beacuse sorting is stable.
-        """
-        # Sort by all columns in ascending order (lexicographical sort)
-        # Provide columns in reverse order of priority
-        keys = tuple(self.dataset[:, i] for i in np.arange(self.n_cols - 1, -1, -1))
-        sorted_indices = np.lexsort(keys)
-
-        # Use the indices to sort the array
-        self.dataset = self.dataset[sorted_indices]

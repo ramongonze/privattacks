@@ -51,6 +51,19 @@ class Attack():
                 raise ValueError(f"The sensitive attribute '{att}' is not in the dataset.")
         return sensitive
                 
+    def _sort_dataset(self, qids:list[str]):
+        """Sort dataset by qid values. It's an assumption for attack methods in class Attack.
+        """
+        qids_idx = [self.data.cols.index(qid) for qid in qids][::-1]
+        
+        # Sort in ascending order (lexicographical sort) 
+        # The order must be reversed to use numpy.lexsort (order of priority)
+        keys = tuple(self.data.dataset[:, i] for i in qids_idx)
+        sorted_indices = np.lexsort(keys)
+
+        # Use the indices to sort the array
+        self.data.dataset = self.data.dataset[sorted_indices]
+
     def _partial_result_reid(self, qids_subset:list[str]):
         """Required by multiprocessing package in order to use imap_unordered()."""
         return (qids_subset, self.posterior_reid(qids_subset))
@@ -116,6 +129,8 @@ class Attack():
                     (0.75, {'[0,0.50)':7, '[0.50,1]':13})
         """
         self._check_qids(qids)
+        self._sort_dataset(qids)
+
         qids_idx = [self.data.col2int(att) for att in qids]
         
         # Groupby by qids
@@ -140,7 +155,6 @@ class Attack():
     def posterior_ai(self, qids:list[str], sensitive:Union[str, List[str]], histogram=False, bin_size=1):
         """
         Posterior vulnerability of probabilistic attribute inference attack.
-        Obs: It assumes the dataset is sorted by QID columns + sensitive attribute columns.
 
         Parameters:
             qids (list): List of quasi-identifiers. If not provided, all columns will be used.
@@ -164,6 +178,7 @@ class Attack():
         """
         self._check_qids(qids)
         self._check_sensitive(sensitive)
+        self._sort_dataset(qids)
         
         if isinstance(sensitive, str):
             sensitive = [sensitive]
@@ -171,6 +186,7 @@ class Attack():
         qids_idx = [self.data.col2int(att) for att in qids] # Qid column indices
         qid_values = self.data.dataset[:, qids_idx] # Partition identifiers
         
+
         # Find unique qid_values, partition starts (indexes) and partition counts
         _, partition_starts = np.unique(qid_values, axis=0, return_index=True)
         partition_starts.sort()
@@ -180,50 +196,30 @@ class Attack():
         if histogram:
             # Create an array with the posterior vulnerability of each record
             ind_posteriors = {sens:[] for sens in sensitive}
-            
+        
         posteriors = {}
         for sens in sensitive:
             sensitive_idx = self.data.col2int(sens) # Sensitive column index
             sensitive_values = self.data.dataset[:, sensitive_idx] # Sensitive attribute columns
 
-            cur_value = -2
-            next_partition, cur_count, max_count, posterior = 0, 0, 0, 0
+            posterior = 0
+            for i in np.arange(len(partition_starts)):
+                start = partition_starts[i]
 
-            # Go through all partitions and find the most frequent element
-            for i in np.arange(self.data.n_rows):
-                # Check if the current partition has finished
-                new_partition = (next_partition < n_partitions and i == partition_starts[next_partition])
-
-                if new_partition:
-                    next_partition += 1
-                    
-                    # The most frequent element in the previous partition is in max_count
-                    max_count = max(max_count, cur_count)
-                    posterior += max_count
-
-                    if histogram and next_partition >= 2:
-                        partition_size = partition_starts[next_partition-1] - partition_starts[next_partition-2]
-                        ind_posteriors[sens] += [max_count/partition_size] * partition_size
-
-                    cur_value = sensitive_values[i]
-                    cur_count, max_count = 1, 1
+                # Get the index the partition ends
+                if start == partition_starts[-1]:
+                    end = self.data.n_rows-1
                 else:
-                    if cur_value == sensitive_values[i]:
-                        cur_count += 1
-                    else:
-                        max_count = max(max_count, cur_count)
-                        cur_value = sensitive_values[i]
-                        cur_count = 1
-                
-                # If it's the last element, update the max_count and
-                # add the adversary's success for the last partition.
-                if i == self.data.n_rows-1:
-                    max_count = max(max_count, cur_count)
-                    posterior += max_count
-                    if histogram:
-                        # Last partition
-                        partition_size = self.data.n_rows - partition_starts[-1]
-                        ind_posteriors[sens] += [max_count/partition_size] * partition_size
+                    end = partition_starts[i+1]-1
+
+                # Count the number of times each sensitive value appears in the current partition
+                values, counts = np.unique(sensitive_values[start:end+1], return_counts=True)
+                max_freq = counts.max()
+                posterior += max_freq # Number of times the most frequent element appears
+
+                if histogram:
+                    partition_size = end-start+1
+                    ind_posteriors[sens] += [max_freq/partition_size] * partition_size
 
             posteriors[sens] = posterior/self.data.n_rows
 
@@ -233,10 +229,9 @@ class Attack():
         
         return posteriors
 
-    def posterior_reid_ai(self, qids:list[str], sensitive:Union[str, List[str]], histogram=False, bin_size=1):
+    def posterior_reid_ai(self, qids:list[str], sensitive:Union[str, List[str]], histogram=False, bin_size=1):  
         """
         Posterior vulnerability of probabilistic re-identification and attribute inference attacks.
-        Obs: It assumes the dataset is sorted by QID columns + sensitive attribute columsn.
 
         Parameters:
             qids (list, optional): List of quasi-identifiers. If not provided, all columns will be used.
@@ -259,6 +254,7 @@ class Attack():
         """
         self._check_qids(qids)
         self._check_sensitive(sensitive)
+        self._sort_dataset(qids)
         
         if isinstance(sensitive, str):
             sensitive = [sensitive]
@@ -294,43 +290,24 @@ class Attack():
             sensitive_idx = self.data.col2int(sens) # Sensitive column index
             sensitive_values = self.data.dataset[:, sensitive_idx] # Sensitive attribute columns
 
-            cur_value = -2
-            next_partition, cur_count, max_count, posterior = 0, 0, 0, 0
-            # Go through all partitions and find the most frequent element
-            for i in np.arange(self.data.n_rows):
-                # Check if the current partition has finished
-                new_partition = (next_partition < n_partitions and i == partition_starts[next_partition])
+            posterior = 0
+            for i in np.arange(len(partition_starts)):
+                start = partition_starts[i]
 
-                if new_partition:
-                    next_partition += 1
-                    
-                    # The most frequent element in the previous partition is in max_count
-                    max_count = max(max_count, cur_count)
-                    posterior += max_count
-                    
-                    if histogram and next_partition >= 2:
-                        partition_size = partition_starts[next_partition-1] - partition_starts[next_partition-2]
-                        ind_posteriors[sens] += [max_count/partition_size] * partition_size
-
-                    cur_value = sensitive_values[i]
-                    cur_count, max_count = 1, 1
+                # Get the index the partition ends
+                if start == partition_starts[-1]:
+                    end = self.data.n_rows-1
                 else:
-                    if cur_value == sensitive_values[i]:
-                        cur_count += 1
-                    else:
-                        max_count = max(max_count, cur_count)
-                        cur_value = sensitive_values[i]
-                        cur_count = 1
-                
-                # If it's the last element, update the max_count and
-                # add the adversary's success for the last partition.
-                if i == self.data.n_rows-1:
-                    max_count = max(max_count, cur_count)
-                    posterior += max_count
-                    if histogram:
-                        # Last partition
-                        partition_size = self.data.n_rows - partition_starts[-1]
-                        ind_posteriors[sens] += [max_count/partition_size] * partition_size
+                    end = partition_starts[i+1]-1
+
+                # Count the number of times each sensitive value appears in the current partition
+                _, counts = np.unique(sensitive_values[start:end+1], return_counts=True)
+                max_freq = counts.max()
+                posterior += max_freq # Number of times the most frequent element appears
+
+                if histogram:
+                    partition_size = end-start+1
+                    ind_posteriors[sens] += [max_freq/partition_size] * partition_size
 
             posteriors_ai[sens] = posterior/self.data.n_rows
 
