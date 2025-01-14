@@ -98,7 +98,7 @@ class Data:
         return df
 
     def df2np(self, dataframe:pd.DataFrame) -> np.ndarray:
-        """Converts a pandas dataframe to a numpy.ndarray. The matrix contains integers in "standard" type, i.e., for all column `c`, the original values from the domain of `c` are converted to integers from 0 to \|`c`\|. Each original value in a domain will be converted to the respective index the value is in the domain list.
+        """Converts a pandas dataframe to a numpy.ndarray. The matrix contains integers in "standard" type, i.e., for all column c, the original values from the domain of c are converted to integers from 0 to size(c). Each original value in a domain will be converted to the respective index the value is in the domain list.
         The method generates a numpy.ndarray.
 
         Parameters:
