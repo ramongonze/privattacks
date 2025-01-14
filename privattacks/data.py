@@ -1,5 +1,6 @@
 import os
 import pyreadr
+import copy
 import numpy as np
 import pandas as pd
 
@@ -20,25 +21,30 @@ class Data:
         n_rows (int): Number of rows (records) in the dataset.
         n_cols (int): Number of columns (attributes) in the dataset.
         cols (list): List of column names in the dataset. The same order as the dataset matrix.
-        int2value (list[list[any]]): Reference list for converting integer values in the new NumPy matrix back to the original column domains. Each element corresponds to a column in ``cols`` and contains the original values in the order they were mapped to integers (e.g., first value → 0, second → 1, etc.).
-        Example: If columns A and B have values ``['apple', 'banana', 'cherry']`` and ``['fig', 'grape', 'kiwi']``, respectively, and were converted as ``apple -> 0, banana -> 1, cherry -> 2`` and ``fig -> 0, grape -> 1, kiwi -> 2``, then ``int2value = [['apple', 'banana', 'cherry'], ['fig', 'grape', 'kiwi']]``.
+        domains (dict[str, list]): Column domains. Keys are column names and values are lists. To generate the numpy matrix each original value will be converted to its index in the domain's list.
     """
 
-    def __init__(self, file_name=None, cols=None, sep_csv=None, encoding='utf-8', dataframe=None, na_values=-1):
+    def __init__(self, cols=None, file_name=None, sep_csv=None, encoding='utf-8', dataframe=None, matrix=None, domains=None, na_values=-1):
         """
         Initializes a Dataset object.
 
         Parameters:
+            cols (list): Dataset columns.
             file_name (str, optional): Dataset file path.
-            cols (list, optional): Columns to be read from the file. When not given, all columns will be read.
             sep_csv (str, optional): CSV delimiter, default is ",".
             encoding: (str, optional, default 'utf-8'): Encoding to use for UTF when reading/writing (ex. 'utf-8', 'latin1'). [https://docs.python.org/3/library/codecs.html#standard-encodings](List of Python standard encodings).
             dataframe (pandas.DataFrame, optional): Pandas dataframe containing the dataset.
+            matrix (numpy.ndarray, optional): Numpy 2d matrix containing the dataset.
+            domains (dict[str, list], optional): Domain of columns. If not given, the domains will be taken from data. Keys are column names and values are lists.
             na_values (int, optional): Value to fill missing data (NaN) with, default is -1.
         """
         if dataframe is not None:
             if not isinstance(dataframe, pd.DataFrame):
-                raise TypeError("dataframe must be a pandas.DataFrame object")
+                raise TypeError("dataframe must be a pandas.DataFrame object")  
+        elif matrix is not None:
+            if not isinstance(matrix, np.ndarray):
+                raise TypeError("matrix must be a numpy.ndarray object")  
+            dataframe = pd.DataFrame(matrix, columns=cols)
         elif file_name is not None:
             file_type = self._file_extension(file_name)
             if file_type == ".csv":
@@ -60,42 +66,54 @@ class Data:
         self.n_rows = dataframe.shape[0]
         self.n_cols = dataframe.shape[1]
         self.cols = dataframe.columns.to_list()
-        self.dataset, self.int2value = self.convert_df_to_np(dataframe)
+        
+        # If domains is not given, take the domains from the dataset
+        if domains is not None:
+            self.domains = domains
+        else:
+            self.domains = self._get_col_domains(dataframe)
 
-    def col2int(self, col):
+        self.dataset = self.df2np(dataframe)
+
+    def col2int(self, col) -> int:
         """Index of a column in the dataset numpy matrix."""
         return self.cols.index(col)
 
-    def convert_df_to_np(self, dataframe:pd.DataFrame) -> np.ndarray:
-        """Converts a pandas dataframe to a numpy.ndarray. The matrix contains integers in "standard" type, i.e., for all column `c`, the original values from the domain of `c` are converted to integers from 0 to \|`c`\|.
-        The method generates a numpy.ndarray and a dictionary to convert integers to the original values.
+    def np2df(self) -> pd.DataFrame:
+        """Convert the numpy matrix to the dataset original domains.
+        
+        Returns
+            df (pandas.DataFrame): Dataset with original domains.
+        """
+        df = pd.DataFrame(self.dataset, columns=self.cols)
+        for col in self.cols:
+            df[col] = df[col].apply(lambda value : self.domains[col][value])
+        
+        return df
+
+    def df2np(self, dataframe:pd.DataFrame) -> np.ndarray:
+        """Converts a pandas dataframe to a numpy.ndarray. The matrix contains integers in "standard" type, i.e., for all column `c`, the original values from the domain of `c` are converted to integers from 0 to \|`c`\|. Each original value in a domain will be converted to the respective index the value is in the domain list.
+        The method generates a numpy.ndarray.
 
         Parameters:
             dataframe (pandas.DataFrame): Dataset.
         
         Returns:
             dataset (numpy.ndarray): Dataset in standard type.
-            int2value (list[list]): Reference list for converting integer values in the new NumPy matrix back to the original column domains. Each element corresponds to a column in ``cols`` and contains the original values in the order they were mapped to integers (e.g., first value → 0, second → 1, etc.).
-            Example: If columns A and B had values ``['apple', 'banana', 'cherry']`` and ``['fig', 'grape', 'kiwi']``, respectively, and were converted as ``apple -> 0, banana -> 1, cherry -> 2`` and ``fig -> 0, grape -> 1, kiwi -> 2``, then ``int2value = [['apple', 'banana', 'cherry'], ['fig', 'grape', 'kiwi']]``.
         """
         # Create a tranposed matrix because numpy is row-oriented
         dataset = np.empty(dataframe.shape[::-1], dtype=int)
-        cols = dataframe.columns.tolist()
-        int2value = []
-        for i, col in enumerate(cols):
-            # Define the order each value will be converted to integers
-            domain = dataframe[col].unique().tolist()
-
-            convert = lambda value : domain.index(value)
-            new_col = dataframe[col].apply(convert)
-            dataset[i, :] = new_col
-
-            # Add refrence to original values
-            int2value.append(domain)
+        for i, col in enumerate(self.cols):
+            convert = lambda value : self.domains[col].index(value)
+            dataset[i, :] = dataframe[col].apply(convert)
         
         # Convert back the dataset to the correct orientation
-        return dataset.T, int2value
+        return dataset.T
 
+    def _get_col_domains(self, dataframe):
+        """Get columns domain from the dataset."""
+        return {col:dataframe[col].unique().tolist() for col in self.cols}
+            
     def _file_extension(self, file_name:str) -> str:
         """
         Infer the file extension from a given file path.
