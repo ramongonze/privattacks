@@ -24,13 +24,13 @@ class Data:
         domains (dict[str, list]): Column domains. Keys are column names and values are lists. To generate the numpy matrix each original value will be converted to its index in the domain's list.
     """
 
-    def __init__(self, cols=None, file_name=None, sep_csv=None, encoding='utf-8', dataframe=None, matrix=None, domains=None, na_values=-1):
+    def __init__(self, file_name=None, cols=None, sep_csv=",", encoding='utf-8', dataframe=None, matrix=None, domains=None, na_values=-1):
         """
         Initializes a Dataset object.
 
         Parameters:
-            cols (list): Dataset columns.
             file_name (str, optional): Dataset file path.
+            cols (list, optional): Dataset columns. If not given when given file_name, read all columns in the file.
             sep_csv (str, optional): CSV delimiter, default is ",".
             encoding: (str, optional, default 'utf-8'): Encoding to use for UTF when reading/writing (ex. 'utf-8', 'latin1'). [https://docs.python.org/3/library/codecs.html#standard-encodings](List of Python standard encodings).
             dataframe (pandas.DataFrame, optional): Pandas dataframe containing the dataset.
@@ -44,12 +44,18 @@ class Data:
         elif matrix is not None:
             if not isinstance(matrix, np.ndarray):
                 raise TypeError("matrix must be a numpy.ndarray object")  
+            
+            if sep_csv is None:
+                raise ValueError("cols argument not given")
+            
             dataframe = pd.DataFrame(matrix, columns=cols)
         elif file_name is not None:
             file_type = self._file_extension(file_name)
+            
             if file_type == ".csv":
                 if sep_csv is None:
                     raise NameError("sep_csv must be provided for CSV files")
+                
                 dataframe = pd.read_csv(file_name, sep=sep_csv, usecols=cols, encoding=encoding)
             elif file_type == ".rdata":
                 rdata = pyreadr.read_r(file_name)
