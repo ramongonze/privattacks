@@ -100,12 +100,10 @@ class Attack():
         if isinstance(sensitive, str):
             sensitive = [sensitive]
 
-        posteriors = dict()
+        priors = dict()
         for sens in sensitive:
-            sensitive_idx = self.data.col2int(sens)
-            _, counts = np.unique(self.data.dataset[:, sensitive_idx], return_counts=True)
-            posteriors[sens] = int(counts.max()) / self.data.n_rows
-        return posteriors
+            priors[sens] = 1/len(self.data.domains[sens])
+        return priors
 
     def posterior_reid(self, qids:list[str], histogram=False, bin_size=1):
         """
