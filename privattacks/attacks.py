@@ -1,4 +1,5 @@
 import csv
+import math
 import privattacks
 import numpy as np
 import pandas as pd
@@ -487,3 +488,42 @@ class Attack():
         
         posteriors = pd.DataFrame(posteriors, columns=["n_qids", "qids", "posterior_reid"] + posterior_cols)
         return posteriors
+    
+    def post_reid_krr_individual(data_ori:privattacks.Data, data_san:privattacks.Data, qids:list[str], epsilons:dict[str,float]):
+        """Posterior vulnerability of re-identification in a dataset sanitized by k-RR individually on each column.
+        
+        Parameters:
+            data_ori (privattacks.Data): Original dataset.
+            data_san (privattacks.Data): Sanitized dataset.
+            qids (list[str]): List of quasi-identifiers.
+            epsilons (dict[str, float]): Privacy parameter for each column.
+            domain_sizes (dict[str, int]): Column domain sizes.
+        """
+        # Transform into numpy arrays
+        domain_sizes = np.array([domain_sizes[qid] for qid in qids])
+        epsilons = np.array([epsilons[qid] for qid in qids])
+        qid_idxs = [data_ori.col2int(qid) for qid in qids]
+
+        dataset_ori = data_ori.dataset[:, qid_idxs]
+        dataset_san = data_san.dataset[:, qid_idxs]
+
+        # p = probability to keep the original value
+        p = epsilons/(epsilons + domain_sizes - 1)
+        p_any_other = (1 - p) / (domain_sizes - 1)
+
+        # For a given target, calculates the probability of each record in the 
+        # sanitized dataset to be the sanitized version of the target
+        prob = lambda target, dataset_san: np.sum(p * (dataset_san == target) + p_any_other * (dataset_san != target), axis=-1)
+
+        vulnerability = 0
+        for idx_target, target in enumerate(dataset_ori):
+            probs = prob(target, dataset_san)     
+            max_prob = np.max(probs)
+            num_candidates = len(np.where(probs == max_prob)[0])
+        
+            # Check if the target is in the list of candidates
+            if math.isclose(max_prob, probs[idx_target]):
+                vulnerability += 1/num_candidates
+
+        vulnerability /= data_ori.n_rows
+        return vulnerability
