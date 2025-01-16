@@ -489,26 +489,26 @@ class Attack():
         posteriors = pd.DataFrame(posteriors, columns=["n_qids", "qids", "posterior_reid"] + posterior_cols)
         return posteriors
     
-    def post_reid_krr_individual(data_ori:privattacks.Data, data_san:privattacks.Data, qids:list[str], epsilons:dict[str,float]):
+    def post_reid_krr_individual(self, qids:list[str], data_san:privattacks.Data, epsilons:dict[str,float]):
         """Posterior vulnerability of re-identification in a dataset sanitized by k-RR individually on each column.
+        The dataset used in the constructor will be considered the original dataset.
         
         Parameters:
-            data_ori (privattacks.Data): Original dataset.
-            data_san (privattacks.Data): Sanitized dataset.
             qids (list[str]): List of quasi-identifiers.
+            data_san (privattacks.Data): Sanitized version of the dataset.
             epsilons (dict[str, float]): Privacy parameter for each column.
             domain_sizes (dict[str, int]): Column domain sizes.
         """
         # Transform into numpy arrays
-        domain_sizes = np.array([domain_sizes[qid] for qid in qids])
+        domain_sizes = np.array([len(self.data.domains[qid]) for qid in qids])
         epsilons = np.array([epsilons[qid] for qid in qids])
-        qid_idxs = [data_ori.col2int(qid) for qid in qids]
+        qid_idxs = [self.data.col2int(qid) for qid in qids]
 
-        dataset_ori = data_ori.dataset[:, qid_idxs]
+        dataset_ori = self.data.dataset[:, qid_idxs]
         dataset_san = data_san.dataset[:, qid_idxs]
 
         # p = probability to keep the original value
-        p = epsilons/(epsilons + domain_sizes - 1)
+        p = epsilons / (epsilons + domain_sizes - 1)
         p_any_other = (1 - p) / (domain_sizes - 1)
 
         # For a given target, calculates the probability of each record in the 
@@ -525,5 +525,5 @@ class Attack():
             if math.isclose(max_prob, probs[idx_target]):
                 vulnerability += 1/num_candidates
 
-        vulnerability /= data_ori.n_rows
+        vulnerability /= self.data.n_rows
         return vulnerability
