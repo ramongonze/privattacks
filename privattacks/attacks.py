@@ -489,7 +489,7 @@ class Attack():
         posteriors = pd.DataFrame(posteriors, columns=["n_qids", "qids", "posterior_reid"] + posterior_cols)
         return posteriors
     
-    def post_reid_krr_individual(self, qids:list[str], data_san:privattacks.Data, epsilons:dict[str,float]):
+    def posterior_reid_krr_individual(self, qids:list[str], data_san:privattacks.Data, epsilons:dict[str,float]):
         """Posterior vulnerability of re-identification in a dataset sanitized by k-RR individually on each column.
         The dataset used in the constructor will be considered the original dataset.
         
