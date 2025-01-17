@@ -1,7 +1,6 @@
 import copy
 import privattacks
 import numpy as np
-from multi_freq_ldpy.pure_frequency_oracles.GRR import GRR_Client
 from typing import Union, List, Tuple, Dict
 
 def check_cols(data:privattacks.Data, cols:list[str]):
@@ -9,6 +8,19 @@ def check_cols(data:privattacks.Data, cols:list[str]):
     for col in cols:
         if col not in data.cols:
             raise ValueError(f"Column {col} not in the dataset.")
+
+def krr(value, domain_size, epsilon):
+    """It's assumed the domain values are in [0, domain_size-1]."""
+    # Probability to keep the original value
+    p = np.exp(epsilon) / (np.exp(epsilon) + domain_size - 1)
+
+    # Bernoulli experiment
+    if np.random.binomial(n=1, p=p) == 1:
+        return value
+    
+    # Return a value different of the given 'value'
+    new_value = np.random.randint(0,domain_size-1)
+    return new_value if new_value < value else new_value + 1
 
 def krr_individual(data:privattacks.Data, domain_sizes:dict, epsilons:dict[str, float]):
     """k-Randomized-Response (k-RR) mechanism. Adds noise individually to each column.
@@ -34,7 +46,7 @@ def krr_individual(data:privattacks.Data, domain_sizes:dict, epsilons:dict[str, 
     assert (np.array(list(epsilons.values())) > 0).sum() == len(epsilons), "All epsilons must be greater than zero"
 
     # Sanitize dataset column by column
-    vectorized_krr = np.vectorize(GRR_Client)
+    vectorized_krr = np.vectorize(krr)
     data_san = copy.deepcopy(data)
     for col in cols:
         col_idx = data_san.col2int(col)
