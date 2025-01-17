@@ -34,7 +34,7 @@ class TestAttack(unittest.TestCase):
         self.assertAlmostEqual(self.attack2.posterior_reid(self.qids2), 3/10)
 
     def test_prior_ai(self):
-        self.assertAlmostEqual(self.attack1.prior_ai(self.sensitive1)[self.sensitive1[0]], 1/2)
+        self.assertAlmostEqual(self.attack1.prior_ai(self.sensitive1)[self.sensitive1[0]], 1/3)
         self.assertAlmostEqual(self.attack2.prior_ai(self.sensitive2)[self.sensitive2[0]], 1/2)
 
     def test_posterior_ai(self):
