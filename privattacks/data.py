@@ -45,7 +45,7 @@ class Data:
             if not isinstance(matrix, np.ndarray):
                 raise TypeError("matrix must be a numpy.ndarray object")  
             
-            if sep_csv is None:
+            if cols is None:
                 raise ValueError("cols argument not given")
             
             dataframe = pd.DataFrame(matrix, columns=cols)
