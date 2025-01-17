@@ -28,29 +28,15 @@ class Attack():
         """
         self.data = data
 
-    def _check_qids(self, qids:list[str]) -> bool:
-        """Check if qids are a subset of columns of the dataset.
+    def _check_cols(self, cols:list[str]) -> bool:
+        """Check if columns are a subset of columns of the dataset.
         
         Raises:
             ValueError: If there is a qid that is not a column of the dataset.
         """
-        for att in qids:
-            if att not in self.data.cols:
-                raise ValueError(f"The quasi-identifier '{att}' is not in the dataset.")
-    
-    def _check_sensitive(self, sensitive:Union[str, List[str]]):
-        """Check if sensitive attributes are a subset of columns of the dataset.
-        
-        Raises:
-            ValueError: If there is a sensitive attribute that is not a column of the dataset.
-        """
-        if isinstance(sensitive, str):
-            sensitive = [sensitive]
-            
-        for att in sensitive:
-            if att not in self.data.cols:
-                raise ValueError(f"The sensitive attribute '{att}' is not in the dataset.")
-        return sensitive
+        for col in cols:
+            if col not in self.data.cols:
+                raise ValueError(f"Column '{col}' is not in the dataset.")
                 
     def _sort_dataset(self, cols:list[str]):
         """Sort dataset by a given set of columns. Returns a sorted copy of the dataset (only the given columns)."""
@@ -97,9 +83,10 @@ class Attack():
         Returns:
             dict[str, float]: Dictionary containing the prior vulnerability for each sensitive attribute (keys are sensitive attribute names and values are posterior vulnerabilities).
         """
-        self._check_sensitive(sensitive)
         if isinstance(sensitive, str):
             sensitive = [sensitive]
+        
+        self._check_cols(sensitive)
 
         priors = dict()
         for sens in sensitive:
@@ -126,7 +113,7 @@ class Attack():
                 
                     (0.75, {'[0,0.50)':7, '[0.50,1]':13})
         """
-        self._check_qids(qids)
+        self._check_cols(qids)
         cols = qids
         dataset = self._sort_dataset(qids).copy()
         qids_idx = [cols.index(qid) for qid in qids]
@@ -174,11 +161,10 @@ class Attack():
                      {'disease': {'[0,0.50)':15, '[0.50,1]':5},
                       'income':{'[0,0.50)':12, '[0.50,1]':8}})
         """
-        self._check_qids(qids)
-        self._check_sensitive(sensitive)
-
         if isinstance(sensitive, str):
             sensitive = [sensitive]
+
+        self._check_cols(qids + sensitive)
 
         cols = qids + sensitive
         dataset = self._sort_dataset(cols)
@@ -250,11 +236,10 @@ class Attack():
                  ({'disease': 0.3455, 'income':0.7},
                   {'disease': {'[0,0.50)':15, '[0.50,1]':5}, 'income':{'[0,0.50)':12, '[0.50,1]':8}}))
         """
-        self._check_qids(qids)
-        self._check_sensitive(sensitive)
-            
         if isinstance(sensitive, str):
             sensitive = [sensitive]
+
+        self._check_cols(qids + sensitive)
         
         cols = qids + sensitive
         dataset = self._sort_dataset(cols)
@@ -331,7 +316,7 @@ class Attack():
         Returns:
             (pandas.DataFrame): A pandas DataFrame containing columns "n_qids", "qids" and "posterior_reid", representing the number of qids in the combination, the actual combination and the posterior vulnerability for the given qid combination, respectively.
         """
-        self._check_qids(qids)
+        self._check_cols(qids)
 
         if save_file is not None:
             # Create a new file with the header
@@ -382,11 +367,10 @@ class Attack():
         Returns:
             (pandas.DataFrame): A pandas DataFrame containing columns "n_qids", "qids" and one column "posterior_S" for every sensitive attribute S, representing, respectively, the number of qids in the combination, the actual combination and the posterior vulnerability for each sensitive attribute.
         """
-        self._check_qids(qids)
-        self._check_sensitive(sensitive)
-        
         if isinstance(sensitive, str):
             sensitive = [sensitive]
+
+        self._check_cols(qids + sensitive)
 
         posterior_cols = [f"posterior_{sens}" for sens in sensitive]
 
@@ -441,11 +425,10 @@ class Attack():
         Returns:
             (pandas.DataFrame): A pandas DataFrame containing columns "n_qids", "qids", "posterior_reid", and one column "posterior_S" for every sensitive attribute S, representing, respectively, the number of qids in the combination, the actual combination, the posterior vulnerability for re-identification and the posterior vulnerability for each sensitive attribute.
         """
-        self._check_qids(qids)
-        self._check_sensitive(sensitive)
-        
         if isinstance(sensitive, str):
             sensitive = [sensitive]
+
+        self._check_cols(qids + sensitive)
 
         posterior_cols = [f"posterior_{sens}" for sens in sensitive]
 
@@ -502,7 +485,7 @@ class Attack():
         Returns:
             float: Posterior re-identification vulnerability.
         """
-        self._check_qids(qids)
+        self._check_cols(qids)
 
         # Transform into numpy arrays
         domain_sizes = np.array([len(self.data.domains[qid]) for qid in qids])
@@ -550,11 +533,10 @@ class Attack():
         Returns:
             dict[str, float]: Dictionary containing the posterior vulnerability for each sensitive attribute.
         """
-        self._check_qids(qids)
-        self._check_sensitive(sensitive)
-
         if isinstance(sensitive, str):
             sensitive = [sensitive]
+
+        self._check_cols(qids + sensitive)
 
         # Transform into numpy arrays
         domain_sizes = np.array([len(self.data.domains[qid]) for qid in qids])
@@ -613,11 +595,10 @@ class Attack():
         Returns:
             (float, dict[str, float]): A pair where the first element is the posterior vulnerability of re-identificadtion and the second is a dictionary containing the posterior vulnerability for each sensitive attribute.
         """
-        self._check_qids(qids)
-        self._check_sensitive(sensitive)
-
         if isinstance(sensitive, str):
             sensitive = [sensitive]
+
+        self._check_cols(qids + sensitive)
 
         # Transform into numpy arrays
         domain_sizes = np.array([len(self.data.domains[qid]) for qid in qids])
