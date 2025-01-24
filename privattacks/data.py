@@ -47,8 +47,6 @@ class Data:
             
             if cols is None:
                 raise ValueError("cols argument not given")
-            
-            dataframe = pd.DataFrame(matrix, columns=cols)
         elif file_name is not None:
             file_type = self._file_extension(file_name)
             
@@ -68,10 +66,15 @@ class Data:
         else:
             raise TypeError("Either file_name or dataframe must be given")
         
-        dataframe.replace(np.nan, na_values, inplace=True)
-        self.n_rows = dataframe.shape[0]
-        self.n_cols = dataframe.shape[1]
-        self.cols = dataframe.columns.to_list()
+        if matrix is not None:
+            self.n_rows = matrix.shape[0]
+            self.n_cols = matrix.shape[1]
+            self.cols = cols
+        else:
+            dataframe.replace(np.nan, na_values, inplace=True)
+            self.n_rows = dataframe.shape[0]
+            self.n_cols = dataframe.shape[1]
+            self.cols = dataframe.columns.to_list()
         
         # If domains is not given, take the domains from the dataset
         if domains is not None:
@@ -79,7 +82,10 @@ class Data:
         else:
             self.domains = self._get_col_domains(dataframe)
 
-        self.dataset = self.df2np(dataframe)
+        if matrix is not None:
+            self.dataset = matrix.copy()
+        else:
+            self.dataset = self.df2np(dataframe)
 
     def col2int(self, col) -> int:
         """Index of a column in the dataset numpy matrix."""
@@ -116,9 +122,12 @@ class Data:
         # Convert back the dataset to the correct orientation
         return dataset.T
 
-    def _get_col_domains(self, dataframe):
+    def _get_col_domains(self, dataset):
         """Get columns domain from the dataset."""
-        return {col:dataframe[col].unique().tolist() for col in self.cols}
+        if isinstance(dataset, pd.DataFrame):
+            return {col:dataset[col].unique().tolist() for col in self.cols}
+        elif isinstance(dataset, np.ndarray):
+            return {col: np.unique(dataset[:, col]).tolist() for col in range(dataset.shape[1])}
             
     def _file_extension(self, file_name:str) -> str:
         """
