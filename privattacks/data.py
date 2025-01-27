@@ -24,7 +24,17 @@ class Data:
         domains (dict[str, list]): Column domains. Keys are column names and values are lists. To generate the numpy matrix each original value will be converted to its index in the domain's list.
     """
 
-    def __init__(self, file_name=None, cols=None, sep_csv=",", encoding='utf-8', dataframe=None, matrix=None, domains=None, na_values=-1):
+    def __init__(
+            self,
+            file_name=None,
+            cols=None,
+            sep_csv=",",
+            encoding='utf-8',
+            dataframe=None,
+            matrix=None,
+            domains=None,
+            na_values=-1
+        ):
         """
         Initializes a Dataset object.
 
