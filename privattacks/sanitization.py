@@ -2,6 +2,7 @@ import copy
 import privattacks
 import numpy as np
 import pandas as pd
+import multiprocessing
 
 def check_cols(data:privattacks.Data, cols:list[str]):
     """Check if columns are in the list of columns of the dataset."""
@@ -87,12 +88,32 @@ def multipliers(domain_sizes):
     
     return mult
 
+
+# Sanitized datasets
+def generate_data(params):
+    i, dataframe, cols, domains = params
+    return (
+        i,
+        privattacks.Data(
+            dataframe=dataframe,
+            cols=cols,
+            domains=domains
+        )
+    )
+
+def params(san_data, cols, domains, n_instances):
+    i = 0
+    while i < n_instances:
+        yield (i, san_data[i], cols, domains)
+        i += 1
+
 def krr_combined(
         dataset:pd.DataFrame,
         qids:list[str],
         domains:dict[str, list],
         epsilon:float,
-        n_instances:int
+        n_instances:int,
+        n_processes=1
     ) -> list[privattacks.Data]:
     """k-Randomized-Response (k-RR) mechanism. Adds noise to a record considering all quasi-identifiers as one single attribute.
 
@@ -101,7 +122,8 @@ def krr_combined(
         qids (list[str]): List of quasi-identifiers. The other attributes will be considered sensitive.
         domains (dict[str, list], optional): Domain of columns.
         epsilon float: Privacy parameter.
-        n_instances: Number of sanitized instances.
+        n_instances (int): Number of sanitized instances.
+        n_processes (int): Number of cores to run in parallel. Default is 1.
 
     Returns:
         ori_data, san_dataset (list[privattacks.Data]): Pair original dataset with the new single attribute and a list of sanitized datasets with the new single attribute (merged quasi-identifiers).
@@ -129,17 +151,23 @@ def krr_combined(
         domain_qids_combined.update(df["qids_combined"].values)
         san_data.append(df)
 
-    for i in np.arange(n_instances):
-        san_data[i] = privattacks.Data(
-            dataframe=san_data[i],
-            cols=["qids_combined"] + sensitive,
-            domains={"qids_combined":list(domain_qids_combined)} | {sens:domains[sens] for sens in sensitive}
+    new_domain = {"qids_combined":list(domain_qids_combined)} | {sens:domains[sens] for sens in sensitive}
+    with multiprocessing.Pool(processes=n_processes) as pool:
+        # Run the attack for all combination of 'n_qids' QIDs
+        results = pool.imap_unordered(
+            generate_data,
+            params(san_data, ["qids_combined"] + sensitive, new_domain, n_instances)
         )
-        
+
+        # Get results from the pool. result[i] = (i, san_data[i])
+        for i, data_san_i in results:
+            print(i)
+            san_data[i] = data_san_i
+
     ori_data = privattacks.Data(
         dataframe=new_dataset,
         cols=["qids_combined"] + sensitive,
-        domains={"qids_combined":list(domain_qids_combined)} | {sens:domains[sens] for sens in sensitive}
+        domains=new_domain
     )
 
     return ori_data, san_data
