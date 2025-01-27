@@ -531,7 +531,6 @@ class Attack():
             qids (list[str]): List of quasi-identifiers.
             data_san (privattacks.Data): Sanitized version of the dataset.
             epsilons (dict[str,float]): Privacy parameter for each column.
-            domain_sizes (dict[str, int]): Column domain sizes.
 
         Returns:
             float: Posterior re-identification vulnerability.
@@ -586,7 +585,6 @@ class Attack():
             sensitive (str, list[str]): A single or a list of sensitive attributes.
             data_san (privattacks.Data): Sanitized version of the dataset.
             epsilons (dict[str, float]): Privacy parameter for each column.
-            domain_sizes (dict[str, int]): Column domain sizes.
 
         Returns:
             dict[str, float]: Dictionary containing the posterior vulnerability for each sensitive attribute.
@@ -655,7 +653,6 @@ class Attack():
             sensitive (str, list[str]): A single or a list of sensitive attributes.
             data_san (privattacks.Data): Sanitized version of the dataset.
             epsilons (dict[str, float]): Privacy parameter for each column.
-            domain_sizes (dict[str, int]): Column domain sizes.
 
         Returns:
             (float, dict[str, float]): A pair where the first element is the posterior vulnerability of re-identificadtion and the second is a dictionary containing the posterior vulnerability for each sensitive attribute.
@@ -715,3 +712,85 @@ class Attack():
             posteriors_ai[sens] /= self.data.n_rows
 
         return posterior_reid, posteriors_ai
+
+    def posterior_reid_krr_together(
+            self,
+            qid:str,
+            data_san:privattacks.Data,
+            epsilon:float
+        ):
+        """Posterior vulnerability of re-identificadtion in a dataset sanitized by k-RR in all columns together (as if it was a single column). The dataset used in the constructor will be considered the original dataset.
+        
+        Parameters:
+            qid (str): Signle quasi-identifier.
+            sensitive (str, list[str]): A single or a list of sensitive attributes.
+            data_san (privattacks.Data): Sanitized version of the dataset.
+            epsilon (float): Privacy parameter.
+
+        Returns:
+            dict[str, float]: Dictionary containing the posterior vulnerability for each sensitive attribute.
+        """
+        if not isinstance(qid, str):
+            raise ValueError("The qid parameter must be a string.")
+        
+        return self.posterior_reid_krr_individual(
+            [qid],
+            data_san,
+            {qid:epsilon}
+        )
+        
+    def posterior_ai_krr_together(
+            self,
+            qid:str,
+            sensitive:Union[str,List[str]],
+            data_san:privattacks.Data,
+            epsilon:float
+        ):
+        """Posterior vulnerability of attribute inference in a dataset sanitized by k-RR in all columns together (as if it was a single column). The dataset used in the constructor will be considered the original dataset.
+        
+        Parameters:
+            qid (str): Single quasi-identifier.
+            sensitive (str, list[str]): A single or a list of sensitive attributes.
+            data_san (privattacks.Data): Sanitized version of the dataset.
+            epsilon (float): Privacy parameter.
+
+        Returns:
+            dict[str, float]: Dictionary containing the posterior vulnerability for each sensitive attribute.
+        """
+        if not isinstance(qid, str):
+            raise ValueError("The qid parameter must be a string.")
+        
+        return self.posterior_ai_krr_individual(
+            [qid],
+            sensitive,
+            data_san,
+            {qid:epsilon}
+        )
+    
+    def posterior_reid_ai_krr_together(
+            self,
+            qid:str,
+            sensitive:Union[str,List[str]],
+            data_san:privattacks.Data,
+            epsilon:float
+        ):
+        """Posterior vulnerability of re-identification and attribute inference in a dataset sanitized by k-RR in all columns together (as if it was a single column). The dataset used in the constructor will be considered the original dataset.
+        
+        Parameters:
+            qid (str): Single quasi-identifier.
+            sensitive (str, list[str]): A single or a list of sensitive attributes.
+            data_san (privattacks.Data): Sanitized version of the dataset.
+            epsilon (float): Privacy parameter.
+
+        Returns:
+            (float, dict[str, float]): A pair where the first element is the posterior vulnerability of re-identificadtion and the second is a dictionary containing the posterior vulnerability for each sensitive attribute.
+        """
+        if not isinstance(qid, str):
+            raise ValueError("The qid parameter must be a string.")
+        
+        return self.posterior_reid_ai_krr_individual(
+            [qid],
+            sensitive,
+            data_san,
+            {qid:epsilon}
+        )
