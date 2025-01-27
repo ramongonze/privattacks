@@ -161,7 +161,6 @@ def krr_combined(
 
         # Get results from the pool. result[i] = (i, san_data[i])
         for i, data_san_i in results:
-            print(i)
             san_data[i] = data_san_i
 
     ori_data = privattacks.Data(
