@@ -93,7 +93,12 @@ class Attack():
             priors[sens] = 1/len(self.data.domains[sens])
         return priors
 
-    def posterior_reid(self, qids:list[str], histogram=False, bin_size=1):
+    def posterior_reid(
+            self,
+            qids:list[str],
+            histogram=False,
+            bin_size=1
+        ):
         """
         Posterior vulnerability of probabilistic re-identification attack.
 
@@ -137,7 +142,14 @@ class Attack():
         
         return posterior
     
-    def posterior_ai(self, qids:list[str], sensitive:Union[str, List[str]], histogram=False, bin_size=1):
+    def posterior_ai(
+            self,
+            qids:list[str],
+            sensitive:Union[str,
+            List[str]],
+            histogram=False,
+            bin_size=1
+        ):
         """
         Posterior vulnerability of probabilistic attribute inference attack.
 
@@ -213,7 +225,14 @@ class Attack():
         
         return posteriors
 
-    def posterior_reid_ai(self, qids:list[str], sensitive:Union[str, List[str]], histogram=False, bin_size=1):  
+    def posterior_reid_ai(
+            self,
+            qids:list[str],
+            sensitive:Union[str,
+            List[str]],
+            histogram=False,
+            bin_size=1
+        ):  
         """
         Posterior vulnerability of probabilistic re-identification and attribute inference attacks.
 
@@ -302,7 +321,15 @@ class Attack():
         
         return posterior_reid, posteriors_ai
 
-    def posterior_reid_subset(self, qids:list[str], num_min, num_max, save_file=None, n_processes=1, verbose=False) -> pd.DataFrame:
+    def posterior_reid_subset(
+            self,
+            qids:list[str],
+            num_min,
+            num_max,
+            save_file=None,
+            n_processes=1,
+            verbose=False
+        ) -> pd.DataFrame:
         """Posterior vulnerability of probabilistic re-identification attack for subsets of qids. The attack is run for a subset of the powerset of qids, defined by parameters min_size and max_size. 
         
         Parameters:
@@ -352,7 +379,16 @@ class Attack():
         posteriors = pd.DataFrame(posteriors, columns=["n_qids", "qids", "posterior_reid"])
         return posteriors
         
-    def posterior_ai_subset(self, qids:list[str], sensitive:Union[str, List[str]], num_min, num_max, save_file=None, n_processes=1, verbose=False) -> pd.DataFrame:
+    def posterior_ai_subset(
+            self,
+            qids:list[str],
+            sensitive:Union[str,
+            List[str]],
+            num_min,
+            num_max,
+            save_file=None,
+            n_processes=1, verbose=False
+        ) -> pd.DataFrame:
         """Posterior vulnerability of probabilistic attribute inference attack for subsets of qids. The attack is run for a subset of the powerset of qids, defined by parameters min_size and max_size.
         
         Parameters:
@@ -410,7 +446,17 @@ class Attack():
         posteriors = pd.DataFrame(posteriors, columns=["n_qids", "qids"] + posterior_cols)
         return posteriors
     
-    def posterior_reid_ai_subset(self, qids:list[str], sensitive:Union[str, List[str]], num_min, num_max, save_file=None, n_processes=1, verbose=False) -> pd.DataFrame:
+    def posterior_reid_ai_subset(
+            self,
+            qids:list[str],
+            sensitive:Union[str,
+            List[str]],
+            num_min,
+            num_max,
+            save_file=None,
+            n_processes=1,
+            verbose=False
+        ) -> pd.DataFrame:
         """Posterior vulnerability of probabilistic re-identification and attribute inference attack for subsets of qids. The attack is run for a subset of the powerset of qids, defined by parameters min_size and max_size.
         
         Parameters:
@@ -472,14 +518,19 @@ class Attack():
         posteriors = pd.DataFrame(posteriors, columns=["n_qids", "qids", "posterior_reid"] + posterior_cols)
         return posteriors
     
-    def posterior_reid_krr_individual(self, qids:list[str], data_san:privattacks.Data, epsilons:dict[str,float]):
+    def posterior_reid_krr_individual(
+            self,
+            qids:list[str],
+            data_san:privattacks.Data,
+            epsilons:dict[str,float]
+        ):
         """Posterior vulnerability of re-identification in a dataset sanitized by k-RR individually on each column.
         The dataset used in the constructor will be considered the original dataset.
         
         Parameters:
             qids (list[str]): List of quasi-identifiers.
             data_san (privattacks.Data): Sanitized version of the dataset.
-            epsilons (dict[str, float]): Privacy parameter for each column.
+            epsilons (dict[str,float]): Privacy parameter for each column.
             domain_sizes (dict[str, int]): Column domain sizes.
 
         Returns:
@@ -519,7 +570,14 @@ class Attack():
 
         return posterior
     
-    def posterior_ai_krr_individual(self, qids:list[str], sensitive:Union[str, List[str]], data_san:privattacks.Data, epsilons:dict[str,float]):
+    def posterior_ai_krr_individual(
+            self,
+            qids:list[str],
+            sensitive:Union[str,
+            List[str]],
+            data_san:privattacks.Data,
+            epsilons:dict[str,float]
+        ):
         """Posterior vulnerability of attribute inference in a dataset sanitized by k-RR individually on each column.
         The dataset used in the constructor will be considered the original dataset.
         
@@ -581,7 +639,14 @@ class Attack():
 
         return posteriors
     
-    def posterior_reid_ai_krr_individual(self, qids:list[str], sensitive:Union[str, List[str]], data_san:privattacks.Data, epsilons:dict[str,float]):
+    def posterior_reid_ai_krr_individual(
+            self,
+            qids:list[str],
+            sensitive:Union[str,
+            List[str]],
+            data_san:privattacks.Data,
+            epsilons:dict[str,float]
+        ):
         """Posterior vulnerability of re-identification and attribute inference in a dataset sanitized by k-RR individually on each column.
         The dataset used in the constructor will be considered the original dataset.
         
