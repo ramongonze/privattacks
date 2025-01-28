@@ -59,8 +59,8 @@ def krr_individual(data:privattacks.Data, domain_sizes:dict, epsilons:dict[str, 
 
     return data_san
 
-# Merge quasi-identifier columns into a single column
 def getidx(domains_arr, tup, mult):
+    # Merge quasi-identifier columns into a single column
     # Calculate the index
     idx = 0
     for i, val in enumerate(tup):
@@ -69,14 +69,15 @@ def getidx(domains_arr, tup, mult):
     
     return idx
 
-def gettup(index, domain_sizes):
-    indices = []    
+def gettup(index, domains_arr, domain_sizes):
+    """Get a tuple (original domains) given a index in the single domain (merged quasi-identifiers)."""
+    indices = []
     while domain_sizes.size > 0:
         indices.append(index % domain_sizes[-1])
         index //= domain_sizes[-1]
         domain_sizes = domain_sizes[:-1]
-    
-    return tuple(indices[::-1])
+
+    return [domains_arr[i][value] for i, value in enumerate(indices[::-1])]
 
 def multipliers(domain_sizes):
     """Multipliers used to calculate the index of a tuple for the domain of all attributes together.""" 
@@ -88,87 +89,65 @@ def multipliers(domain_sizes):
     
     return mult
 
-# Sanitized datasets
-def generate_data(params):
-    i, dataframe, cols, domains = params
-    return (
-        i,
-        privattacks.Data(
-            dataframe=dataframe,
-            cols=cols,
-            cols_to_ignore=["qids_combined"],
-            domains=domains
-        )
-    )
+def add_noise_dataset(params):    
+    new_dataset, qids, epsilon, new_domain_size, qid_domains_arr, qid_domain_sizes = params
 
-def params(san_data, cols, domains, n_instances):
-    i = 0
-    while i < n_instances:
-        yield (i, san_data[i], cols, domains)
-        i += 1
+    dataset_san = new_dataset.copy()
+    # Generate the noised tuple and convert back to original domains
+    dataset_san[qids] = new_dataset["qids_combined"].apply(
+        lambda record: gettup(krr(record, new_domain_size, epsilon), qid_domains_arr, qid_domain_sizes)
+    ).tolist()
 
-def krr_combined(
-        dataset:pd.DataFrame,
-        qids:list[str],
-        domains:dict[str, list],
-        epsilon:float,
-        n_instances:int,
-        n_processes=1
-    ) -> list[privattacks.Data]:
-    """k-Randomized-Response (k-RR) mechanism. Adds noise to a record considering all quasi-identifiers as one single attribute.
+    return dataset_san.drop("qids_combined", axis=1)
 
-    Parameters:
-        dataset (pd.DataFrame): Original data.
-        qids (list[str]): List of quasi-identifiers. The other attributes will be considered sensitive.
-        domains (dict[str, list], optional): Domain of columns.
-        epsilon float: Privacy parameter.
-        n_instances (int): Number of sanitized instances.
-        n_processes (int, optional): Number of cores to run in parallel. Default is 1.
-
-    Returns:
-        ori_data, san_dataset (list[privattacks.Data]): Pair original dataset with the new single attribute and a list of sanitized datasets with the new single attribute (merged quasi-identifiers).
-    """
-    sensitive = list(set(dataset.columns) - set(qids))
-
+def params(dataset_ori, qids, domains, epsilon, n_instances):
     # New new values are integers from 0 to new_domain_size-1
     qid_domains_arr = [domains[qid] for qid in qids]
     qid_domain_sizes = np.array([len(domains[qid]) for qid in qids])
     new_domain_size = qid_domain_sizes.prod()
     mult = multipliers(qid_domain_sizes)
 
-    new_dataset = dataset.copy()
-    new_dataset["qids_combined"] = dataset[qids].apply(lambda x : getidx(qid_domains_arr, x.values, mult), axis=1)
-    new_dataset = new_dataset[["qids_combined"] + sensitive]
+    new_dataset = dataset_ori.copy()
+    new_dataset["qids_combined"] = dataset_ori[qids].apply(lambda x : getidx(qid_domains_arr, x.values, mult), axis=1)
+    
+    i = 0
+    while i < n_instances:
+        yield (new_dataset, qids, epsilon, new_domain_size, qid_domains_arr, qid_domain_sizes)
+        i += 1
 
-    san_data = []
-    domain_qids_combined = set(new_dataset["qids_combined"].values)
+def krr_combined(
+        dataset_ori:pd.DataFrame,
+        qids:list[str],
+        domains:dict[str, list],
+        epsilon:float,
+        n_instances=1,
+        n_processes=1
+    ) -> list[privattacks.Data]:
+    """k-Randomized-Response (k-RR) mechanism. Adds noise to a record considering all quasi-identifiers as one single attribute.
+
+    Parameters:
+        dataset_ori (pd.DataFrame): Original data.
+        qids (list[str]): List of quasi-identifiers. The other attributes will be considered sensitive.
+        domains (dict[str, list], optional): Domain of columns.
+        epsilon float: Privacy parameter.
+        n_instances (int, optional): Number of sanitized instances. Default is 1.
+        n_processes (int, optional): Number of cores to run in parallel. Default is 1.
+
+    Returns:
+        san_dataset (list[privattacks.Data]): List of sanitized datasets.
+    """
+    data_san = []
     # Create sanitized datasets. The new domain of the single attribute (merged quasi-identifiers)
     # will be the union of all values presented in the original and in all sanitized instances.
-    for _ in np.arange(n_instances):
-        df = new_dataset.copy()
-        # Generate the noised tuple and convert back to original domains
-        df["qids_combined"] = df["qids_combined"].apply(lambda record: krr(record, new_domain_size, epsilon)).tolist()
-        domain_qids_combined.update(df["qids_combined"].values)
-        san_data.append(df)
-
-    # Generate privattacks.Data data with sanitized pandas dataframes
-    new_domain = {"qids_combined":list(domain_qids_combined)} | {sens:domains[sens] for sens in sensitive}
     with multiprocessing.Pool(processes=n_processes) as pool:
         # Run the attack for all combination of 'n_qids' QIDs
         results = pool.imap_unordered(
-            generate_data,
-            params(san_data, ["qids_combined"] + sensitive, new_domain, n_instances)
+            add_noise_dataset,
+            params(dataset_ori, qids, domains, epsilon, n_instances)
         )
 
-        # Get results from the pool. result[i] = (i, san_data[i])
-        for i, data_san_i in results:
-            san_data[i] = data_san_i
-
-    ori_data = privattacks.Data(
-        dataframe=new_dataset,
-        cols=["qids_combined"] + sensitive,
-        cols_to_ignore=["qids_combined"],
-        domains=new_domain
-    )
-
-    return ori_data, san_data
+        # Get results from the pool
+        for data_san_i in results:
+            data_san.append(privattacks.Data(dataframe=data_san_i.copy(), domains=domains))
+        
+    return data_san
