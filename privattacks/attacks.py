@@ -713,35 +713,63 @@ class Attack():
 
         return posterior_reid, posteriors_ai
 
-    def posterior_reid_krr_together(
+    def posterior_reid_krr_combined(
             self,
-            qid:str,
+            qids:str,
             data_san:privattacks.Data,
             epsilon:float
         ):
-        """Posterior vulnerability of re-identificadtion in a dataset sanitized by k-RR in all columns together (as if it was a single column). The dataset used in the constructor will be considered the original dataset.
+        """Posterior vulnerability of re-identificadtion in a dataset sanitized by k-RR in all columns combined (as if it was a single column). The dataset used in the constructor will be considered the original dataset.
         
         Parameters:
-            qid (str): Signle quasi-identifier.
-            sensitive (str, list[str]): A single or a list of sensitive attributes.
+            qids (str): List of quasi-identifiers.
             data_san (privattacks.Data): Sanitized version of the dataset.
             epsilon (float): Privacy parameter.
 
         Returns:
             dict[str, float]: Dictionary containing the posterior vulnerability for each sensitive attribute.
         """
-        if not isinstance(qid, str):
-            raise ValueError("The qid parameter must be a string.")
+        self._check_cols(qids)
+
+        domain_size_combined_qids = np.array([len(self.data.domains[qid]) for qid in qids]).prod()
+        qid_idxs = [self.data.col2int(qid) for qid in qids]
+
+        dataset_ori = self.data.dataset[:, qid_idxs]
+        dataset_san = data_san.dataset[:, qid_idxs]
+
+        # p = probability to keep the original value
+        p = math.e**epsilon / (math.e**epsilon + domain_size_combined_qids - 1)
+
+        # For a given target, calculates the probability of each record in the 
+        # sanitized dataset to be the sanitized version of the target. 
+        # prob = True if the probability is p or False if it's (1-p)/(k-1)
+        prob = lambda target, dataset_san: np.all(dataset_san == target, axis=1)
+
+        posterior = 0
+        for idx_target, target in enumerate(dataset_ori):
+            # Number of records with probability p (the same values as the target)
+            probs = prob(target, dataset_san)
+            if p >= 1/2:
+                # The probability to keep the original tuple is higher than flipping it
+                if probs[idx_target]:
+                    posterior += 1/probs.sum()
+                elif probs.sum() == 0:
+                    posterior += 1/self.data.n_rows                    
+            else:
+                # The probability to flip the tuple is higher than keep the original
+                if not probs[idx_target]:
+                    posterior += 1/(self.data.n_rows - probs.sum())
+                elif probs.sum() == self.data.n_rows:
+                    posterior += 1/self.data.n_rows
         
-        return self.posterior_reid_krr_individual(
-            [qid],
-            data_san,
-            {qid:epsilon}
-        )
+        # Divide by the prior probability of each target
+        posterior /= self.data.n_rows
+
+        return posterior
         
-    def posterior_ai_krr_together(
+    def posterior_ai_krr_combined(
             self,
-            qid:str,
+            qids:str,
             sensitive:Union[str,List[str]],
             data_san:privattacks.Data,
             epsilon:float
@@ -749,7 +777,7 @@ class Attack():
         """Posterior vulnerability of attribute inference in a dataset sanitized by k-RR in all columns together (as if it was a single column). The dataset used in the constructor will be considered the original dataset.
         
         Parameters:
-            qid (str): Single quasi-identifier.
+            qids (str): List of quasi-identifiers.
             sensitive (str, list[str]): A single or a list of sensitive attributes.
             data_san (privattacks.Data): Sanitized version of the dataset.
             epsilon (float): Privacy parameter.
@@ -757,19 +785,60 @@ class Attack():
         Returns:
             dict[str, float]: Dictionary containing the posterior vulnerability for each sensitive attribute.
         """
-        if not isinstance(qid, str):
-            raise ValueError("The qid parameter must be a string.")
-        
-        return self.posterior_ai_krr_individual(
-            [qid],
-            sensitive,
-            data_san,
-            {qid:epsilon}
-        )
+        if isinstance(sensitive, str):
+            sensitive = [sensitive]
+
+        self._check_cols(qids + sensitive)
+
+        domain_size_combined_qids = np.array([len(self.data.domains[qid]) for qid in qids]).prod()
+        qid_idxs = [self.data.col2int(qid) for qid in qids]
+
+        dataset_ori = self.data.dataset[:, qid_idxs]
+        dataset_san = data_san.dataset[:, qid_idxs]
+
+        # p = probability to keep the original value
+        p = math.e**epsilon / (math.e**epsilon + domain_size_combined_qids - 1)
+
+        # For a given target, calculates the probability of each record in the 
+        # sanitized dataset to be the sanitized version of the target. 
+        # prob = True if the probability is p or False if it's (1-p)/(k-1)
+        prob = lambda target, dataset_san: np.all(dataset_san == target, axis=1)
+
+        posteriors = {sens:0 for sens in sensitive}
+        for idx_target, target in enumerate(dataset_ori):
+            # Number of records with probability p (the same values as the target)
+            probs = prob(target, dataset_san)
+            if p >= 1/2:
+                candidates = np.where(probs)[0]
+            else:
+                candidates = np.where(~probs)[0]
+            
+            if len(candidates) == 0:
+                candidates = list(range(self.data.n_rows))
+
+            for sens in sensitive:
+                sens_idx = self.data.col2int(sens)
+                cand_sensitive = data_san.dataset[candidates, sens_idx] # Sensitive values of candidates
+
+                # Get the most frequent elements
+                values, counts = np.unique(cand_sensitive, return_counts=True)
+                max_freq = np.max(counts)
+                max_values = values[counts == max_freq]
+
+                target_ori_value = self.data.dataset[idx_target, sens_idx]
+                # Check if the target's original value is in the list of most frequent sensitive values
+                if target_ori_value in max_values:
+                    posteriors[sens] += 1/len(max_values)
+
+        for sens in sensitive:            
+            # Divide by the prior probability of each target
+            posteriors[sens] /= self.data.n_rows
+
+        return posteriors
     
-    def posterior_reid_ai_krr_together(
+    def posterior_reid_ai_krr_combined(
             self,
-            qid:str,
+            qids:str,
             sensitive:Union[str,List[str]],
             data_san:privattacks.Data,
             epsilon:float
@@ -777,7 +846,7 @@ class Attack():
         """Posterior vulnerability of re-identification and attribute inference in a dataset sanitized by k-RR in all columns together (as if it was a single column). The dataset used in the constructor will be considered the original dataset.
         
         Parameters:
-            qid (str): Single quasi-identifier.
+            qids (str): List of quasi-identifiers.
             sensitive (str, list[str]): A single or a list of sensitive attributes.
             data_san (privattacks.Data): Sanitized version of the dataset.
             epsilon (float): Privacy parameter.
@@ -785,12 +854,72 @@ class Attack():
         Returns:
             (float, dict[str, float]): A pair where the first element is the posterior vulnerability of re-identificadtion and the second is a dictionary containing the posterior vulnerability for each sensitive attribute.
         """
-        if not isinstance(qid, str):
-            raise ValueError("The qid parameter must be a string.")
-        
-        return self.posterior_reid_ai_krr_individual(
-            [qid],
-            sensitive,
-            data_san,
-            {qid:epsilon}
-        )
+        if isinstance(sensitive, str):
+            sensitive = [sensitive]
+
+        self._check_cols(qids + sensitive)
+
+        domain_size_combined_qids = np.array([len(self.data.domains[qid]) for qid in qids]).prod()
+        qid_idxs = [self.data.col2int(qid) for qid in qids]
+
+        dataset_ori = self.data.dataset[:, qid_idxs]
+        dataset_san = data_san.dataset[:, qid_idxs]
+
+        # p = probability to keep the original value
+        p = math.e**epsilon / (math.e**epsilon + domain_size_combined_qids - 1)
+
+        # For a given target, calculates the probability of each record in the 
+        # sanitized dataset to be the sanitized version of the target. 
+        # prob = True if the probability is p or False if it's (1-p)/(k-1)
+        prob = lambda target, dataset_san: np.all(dataset_san == target, axis=1)
+
+        posterior_reid = 0
+        posteriors_ai = {sens:0 for sens in sensitive}
+        for idx_target, target in enumerate(dataset_ori):
+            # Number of records with probability p (the same values as the target)
+            probs = prob(target, dataset_san)
+    
+            if p >= 1/2:
+                # Re-identification
+                # The probability to keep the original tuple is higher than flipping it
+                if probs[idx_target]:
+                    posterior_reid += 1/probs.sum()
+                elif probs.sum() == 0:
+                    posterior_reid += 1/self.data.n_rows
+
+                # Attribute inference
+                candidates = np.where(probs)[0]
+            else:
+                # Re-identification
+                # The probability to flip the tuple is higher than keep the original
+                if not probs[idx_target]:
+                    posterior_reid += 1/(self.data.n_rows - probs.sum())
+                elif probs.sum() == self.data.n_rows:
+                    posterior_reid += 1/self.data.n_rows
+
+                # Attribute inference
+                candidates = np.where(~probs)[0]
+            
+            if len(candidates) == 0:
+                candidates = list(range(self.data.n_rows))
+
+            for sens in sensitive:
+                sens_idx = self.data.col2int(sens)
+                cand_sensitive = data_san.dataset[candidates, sens_idx] # Sensitive values of candidates
+
+                # Get the most frequent elements
+                values, counts = np.unique(cand_sensitive, return_counts=True)
+                max_freq = np.max(counts)
+                max_values = values[counts == max_freq]
+
+                target_ori_value = self.data.dataset[idx_target, sens_idx]
+                # Check if the target's original value is in the list of most frequent sensitive values
+                if target_ori_value in max_values:
+                    posteriors_ai[sens] += 1/len(max_values)
+
+        posterior_reid /= self.data.n_rows
+        for sens in sensitive:            
+            # Divide by the prior probability of each target
+            posteriors_ai[sens] /= self.data.n_rows
+
+        return posterior_reid, posteriors_ai
