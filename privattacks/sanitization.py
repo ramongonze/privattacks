@@ -88,7 +88,6 @@ def multipliers(domain_sizes):
     
     return mult
 
-
 # Sanitized datasets
 def generate_data(params):
     i, dataframe, cols, domains = params
@@ -97,6 +96,7 @@ def generate_data(params):
         privattacks.Data(
             dataframe=dataframe,
             cols=cols,
+            cols_to_ignore=["qids_combined"],
             domains=domains
         )
     )
@@ -166,6 +166,7 @@ def krr_combined(
     ori_data = privattacks.Data(
         dataframe=new_dataset,
         cols=["qids_combined"] + sensitive,
+        cols_to_ignore=["qids_combined"],
         domains=new_domain
     )
 

@@ -11,6 +11,7 @@ class Data:
     Parameters:
         file_name (str, optional): Dataset file path.
         cols (list, optional): Columns to be read from the file. When not given, all columns will be read.
+        cols_to_ignore (list, optional): Columns to ignore in the convertion to integers from 0 to domain_size-1. It must be used for columns with integer values only.
         sep_csv (str, optional): CSV delimiter, default is ",".
         encoding: (str, optional, default 'utf-8'): Encoding to use for UTF when reading/writing (ex. 'utf-8', 'latin1'). [List of Python standard encodings](https://docs.python.org/3/library/codecs.html#standard-encodings).
         dataframe (pandas.DataFrame, optional): Pandas dataframe containing the dataset.
@@ -28,6 +29,7 @@ class Data:
             self,
             file_name=None,
             cols=None,
+            cols_to_ignore=None,
             sep_csv=",",
             encoding='utf-8',
             dataframe=None,
@@ -41,6 +43,7 @@ class Data:
         Parameters:
             file_name (str, optional): Dataset file path.
             cols (list, optional): Dataset columns. If not given when given file_name, read all columns in the file.
+            cols_to_ignore (list, optional): Columns to ignore in the convertion to integers from 0 to domain_size-1. It must be used for columns with integer values only.
             sep_csv (str, optional): CSV delimiter, default is ",".
             encoding: (str, optional, default 'utf-8'): Encoding to use for UTF when reading/writing (ex. 'utf-8', 'latin1'). [https://docs.python.org/3/library/codecs.html#standard-encodings](List of Python standard encodings).
             dataframe (pandas.DataFrame, optional): Pandas dataframe containing the dataset.
@@ -86,6 +89,8 @@ class Data:
             self.n_cols = dataframe.shape[1]
             self.cols = dataframe.columns.to_list()
         
+        self.cols_to_ignore = cols_to_ignore
+
         # If domains is not given, take the domains from the dataset
         if domains is not None:
             self.domains = domains
@@ -108,9 +113,14 @@ class Data:
             df (pandas.DataFrame): Dataset with original domains.
         """
         df = pd.DataFrame(self.dataset, columns=self.cols)
-        for col in self.cols:
-            df[col] = df[col].apply(lambda value : self.domains[col][value])
         
+        cols = self.cols
+        if self.cols_to_ignore:
+            cols = list(set(cols) - set(self.cols_to_ignore))
+
+        for col in cols:
+            df[col] = df[col].apply(lambda value : self.domains[col][value])
+
         return df
 
     def df2np(self, dataframe:pd.DataFrame) -> np.ndarray:
@@ -125,10 +135,19 @@ class Data:
         """
         # Create a tranposed matrix because numpy is row-oriented
         dataset = np.empty(dataframe.shape[::-1], dtype=int)
-        for i, col in enumerate(self.cols):
+
+        cols = self.cols
+        if self.cols_to_ignore:
+            cols = list(set(cols) - set(self.cols_to_ignore))
+            for col in self.cols_to_ignore:
+                col_idx = self.col2int(col)
+                dataset[col_idx, :] = dataframe[col]
+
+        for col in cols:
+            col_idx = self.col2int(col)
             convert = lambda value : self.domains[col].index(value)
-            dataset[i, :] = dataframe[col].apply(convert)
-        
+            dataset[col_idx, :] = dataframe[col].apply(convert)
+
         # Convert back the dataset to the correct orientation
         return dataset.T
 
