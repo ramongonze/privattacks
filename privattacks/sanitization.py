@@ -123,7 +123,7 @@ def krr_combined(
         domains (dict[str, list], optional): Domain of columns.
         epsilon float: Privacy parameter.
         n_instances (int): Number of sanitized instances.
-        n_processes (int): Number of cores to run in parallel. Default is 1.
+        n_processes (int, optional): Number of cores to run in parallel. Default is 1.
 
     Returns:
         ori_data, san_dataset (list[privattacks.Data]): Pair original dataset with the new single attribute and a list of sanitized datasets with the new single attribute (merged quasi-identifiers).
@@ -151,6 +151,7 @@ def krr_combined(
         domain_qids_combined.update(df["qids_combined"].values)
         san_data.append(df)
 
+    # Generate privattacks.Data data with sanitized pandas dataframes
     new_domain = {"qids_combined":list(domain_qids_combined)} | {sens:domains[sens] for sens in sensitive}
     with multiprocessing.Pool(processes=n_processes) as pool:
         # Run the attack for all combination of 'n_qids' QIDs
