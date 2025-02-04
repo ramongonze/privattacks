@@ -4,8 +4,7 @@ install_requires = [
     "pandas",
     "numpy",
     "tqdm",
-    "pyreadr",
-    "multi_freq_ldpy"
+    "pyreadr"
 ]
 
 setuptools.setup(

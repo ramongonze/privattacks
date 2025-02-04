@@ -1,6 +1,7 @@
 from privattacks.data import Data
 from privattacks.attacks import Attack
 import pandas as pd
+import numpy as np
 import unittest
 import os
 
@@ -49,6 +50,75 @@ class TestAttack(unittest.TestCase):
         posterior_reid, posteriors_ai = self.attack2.posterior_reid_ai(self.qids2, self.sensitive2)
         self.assertAlmostEqual(posterior_reid, 3/10)
         self.assertAlmostEqual(posteriors_ai[self.sensitive2[0]], 6/10)
+
+    def test_posterior_reid_record(self):
+        _, distribution = self.attack1.posterior_reid(self.qids1, distribution=True)
+        distribution = sorted(distribution)
+        distribution_gt = sorted([1, 1/2, 1/2, 1/2, 1/2, 1/3, 1/3, 1/3])
+        for i in np.arange(len(distribution)):
+            self.assertAlmostEqual(distribution[i], distribution_gt[i])
+        
+        # Test average
+        self.assertAlmostEqual(np.array(distribution).mean(), 1/2)
+
+        _, distribution = self.attack2.posterior_reid(self.qids2, distribution=True)
+        distribution = sorted(distribution)
+        distribution_gt = sorted([1/5]*5 + [1/4]*4 + [1])
+        for i in np.arange(len(distribution)):
+            self.assertAlmostEqual(distribution[i], distribution_gt[i])
+
+        # Test average
+        self.assertAlmostEqual(np.array(distribution).mean(), 3/10)
+
+    def test_posterior_ai_record(self):
+        _, distribution = self.attack1.posterior_ai(self.qids1, self.sensitive1, distribution=True)
+        distribution = sorted(distribution[self.sensitive1[0]])
+        distribution_gt = sorted([1, 1/2, 1/2, 1, 1, 2/3, 2/3, 2/3])
+        for i in np.arange(len(distribution)):
+            self.assertAlmostEqual(distribution[i], distribution_gt[i])
+        
+        # Test average
+        self.assertAlmostEqual(np.array(distribution).mean(), 3/4)
+
+        _, distribution = self.attack2.posterior_ai(self.qids2, self.sensitive2, distribution=True)
+        distribution = sorted(distribution[self.sensitive2[0]])
+        distribution_gt = sorted([3/5]*5 + [2/4]*4 + [1])
+        for i in np.arange(len(distribution)):
+            self.assertAlmostEqual(distribution[i], distribution_gt[i])
+
+        # Test average
+        self.assertAlmostEqual(np.array(distribution).mean(), 6/10)
+
+    def test_posterior_reid_ai_record(self):
+        ((_, distribution_reid), (_,distribution_ai)) = self.attack1.posterior_reid_ai(self.qids1, self.sensitive1, distribution=True)
+        distribution_reid = sorted(distribution_reid)
+        distribution_reid_gt = sorted([1, 1/2, 1/2, 1/2, 1/2, 1/3, 1/3, 1/3])
+        distribution_ai = sorted(distribution_ai[self.sensitive1[0]])
+        distribution_ai_gt = sorted([1, 1/2, 1/2, 1, 1, 2/3, 2/3, 2/3])
+        for i in np.arange(len(distribution_reid)):
+            self.assertAlmostEqual(distribution_reid[i], distribution_reid_gt[i])
+
+        for i in np.arange(len(distribution_ai)):
+            self.assertAlmostEqual(distribution_ai[i], distribution_ai_gt[i])
+        
+        # Test average
+        self.assertAlmostEqual(np.array(distribution_reid).mean(), 1/2)
+        self.assertAlmostEqual(np.array(distribution_ai).mean(), 3/4)
+
+        ((_, distribution_reid), (_,distribution_ai)) = self.attack2.posterior_reid_ai(self.qids2, self.sensitive2, distribution=True)
+        distribution_reid = sorted(distribution_reid)
+        distribution_reid_gt = sorted([1/5]*5 + [1/4]*4 + [1])
+        distribution_ai = sorted(distribution_ai[self.sensitive2[0]])
+        distribution_ai_gt = sorted([3/5]*5 + [2/4]*4 + [1])
+        for i in np.arange(len(distribution_reid)):
+            self.assertAlmostEqual(distribution_reid[i], distribution_reid_gt[i])
+
+        for i in np.arange(len(distribution_ai)):
+            self.assertAlmostEqual(distribution_ai[i], distribution_ai_gt[i])
+
+        # Test average
+        self.assertAlmostEqual(np.array(distribution_reid).mean(), 3/10)
+        self.assertAlmostEqual(np.array(distribution_ai).mean(), 6/10)
 
     def test_posterior_reid_subset(self):
         results = self.attack1.posterior_reid_subset(self.qids1, 1, len(self.qids1))

@@ -96,27 +96,25 @@ class Attack():
     def posterior_reid(
             self,
             qids:list[str],
-            histogram=False,
-            bin_size=1
+            distribution=False
         ):
         """
         Posterior vulnerability of probabilistic re-identification attack.
 
         Parameters:
             qids (list[str]): List of quasi-identifiers.
-            histogram (bool, optional): Whether to generate a histogram of individual posterior vulnerabilities. Default is False.
-            bin_size (int, optional): Bin size for the histogram if hist is True. Default is 1.
+            distribution (bool, optional): Whether to return the distribution of posterior vulnerability per record. Default is False.
 
         Returns:
-            float or (float, dict): If histogram is False, returns the posterior vulnerability.
-                If histogram is True, returns a pair (<posterior vulnerability>, <histogram>).
-                Example of output when histogram is False::
+            float or (float, list): If distribution is False, returns the posterior vulnerability.
+                If distribution is True, returns a pair (<posterior vulnerability>, <distribution>).
+                Example of output when distribution is False::
                     
                     0.75
 
-                Example of output when histogram is True::
+                Example of output when distribution is True::
                 
-                    (0.75, {'[0,0.50)':7, '[0.50,1]':13})
+                    (0.75, [0.5, 0.5, 1.0, 1.0, 0.75])
         """
         self._check_cols(qids)
         cols = qids
@@ -129,16 +127,15 @@ class Attack():
         n_partitions = len(partition_starts)
         posterior = n_partitions/self.data.n_rows
         
-        if histogram:
+        if distribution:
             # Create an array with the posterior vulnerability of each record
-            ind_posteriors = []
+            posteriors_record = []
             partition_starts = np.append(partition_starts, self.data.n_rows)
             for i in np.arange(len(partition_starts)-1):
                 partition_size = partition_starts[i+1] - partition_starts[i]
-                ind_posteriors += [1/partition_size] * partition_size
+                posteriors_record += [1/partition_size] * partition_size
 
-            hist = privattacks.util.create_histogram(ind_posteriors, bin_size)
-            return posterior, hist
+            return posterior, posteriors_record
         
         return posterior
     
@@ -147,8 +144,7 @@ class Attack():
             qids:list[str],
             sensitive:Union[str,
             List[str]],
-            histogram=False,
-            bin_size=1
+            distribution=False
         ):
         """
         Posterior vulnerability of probabilistic attribute inference attack.
@@ -156,22 +152,21 @@ class Attack():
         Parameters:
             qids (list): List of quasi-identifiers. If not provided, all columns will be used.
             sensitive (str, list[str]): A single or a list of sensitive attributes.
-            histogram (bool, optional): Whether to generate a histogram of individual posterior vulnerabilities. Default is False.
-            bin_size (int, optional): Bin size for the histogram if hist is True. Default is 1.
+            distribution (bool, optional): Whether to return the distribution of posterior vulnerability per record. Default is False.
 
         Returns:
-            dict[str, float] or (dict[str, float], dict):
-                If histogram is False, returns a dictionary containing the posterior vulnerability for each sensitive attribute.
-                If histogram is True, returns a pair ``(<posterior vulnerability>, <histogram for each sensitive attribute>)``.
-                Example of output when histogram is False::
+            dict[str, float] or (dict[str, list]):
+                If distribution is False, returns a dictionary containing the posterior vulnerability for each sensitive attribute.
+                If distribution is True, returns a pair ``(<posterior vulnerability>, <distribution for each sensitive attribute>)``.
+                Example of output when distribution is False::
                 
                     {'disease': 0.3455, 'income':0.7}
 
-                Example of ouput when histogram is True::
+                Example of ouput when distribution is True::
                 
                     ({'disease': 0.3455, 'income':0.7},
-                     {'disease': {'[0,0.50)':15, '[0.50,1]':5},
-                      'income':{'[0,0.50)':12, '[0.50,1]':8}})
+                     {'disease': [0.1, 0.1, 0.3, 0.4, 0.8275],
+                      'income': [0.6, 0.7, 0.7, 0.7, 0.8]})
         """
         if isinstance(sensitive, str):
             sensitive = [sensitive]
@@ -189,9 +184,9 @@ class Attack():
         partition_starts.sort()
 
         # Attribute inference
-        if histogram:
+        if distribution:
             # Create an array with the posterior vulnerability of each record
-            ind_posteriors = {sens:[] for sens in sensitive}
+            posteriors_record = {sens:[] for sens in sensitive}
         
         posteriors = {}
         for sens in sensitive:
@@ -213,15 +208,14 @@ class Attack():
                 max_freq = counts.max()
                 posterior += max_freq # Number of times the most frequent element appears
 
-                if histogram:
+                if distribution:
                     partition_size = end-start+1
-                    ind_posteriors[sens] += [max_freq/partition_size] * partition_size
+                    posteriors_record[sens] += [max_freq/partition_size] * partition_size
 
             posteriors[sens] = posterior/self.data.n_rows
 
-        if histogram:
-            hist = {sens:privattacks.util.create_histogram(ind_posteriors[sens], bin_size) for sens in sensitive}
-            return posteriors, hist
+        if distribution:
+            return posteriors, posteriors_record
         
         return posteriors
 
@@ -230,8 +224,7 @@ class Attack():
             qids:list[str],
             sensitive:Union[str,
             List[str]],
-            histogram=False,
-            bin_size=1
+            distribution=False
         ):  
         """
         Posterior vulnerability of probabilistic re-identification and attribute inference attacks.
@@ -239,21 +232,21 @@ class Attack():
         Parameters:
             qids (list, optional): List of quasi-identifiers. If not provided, all columns will be used.
             sensitive (str, list[str]): A single or a list of sensitive attributes.
-            histogram (bool, optional): Whether to generate a histogram of individual posterior vulnerabilities. Default is False.
-            bin_size (int, optional): Bin size for the histogram if hist is True. Default is 1.
+            distribution (bool, optional): Whether to return the distribution of posterior vulnerability per record. Default is False.
 
         Returns:
-            (float, dict[str, float]) or ((float, dict), (dict[str, float], dict[str, dict[str, int]])):
-            If histogram is False, returns a pair ``(<posterior re-identification>, <posterior attribute inference for each sensitive attribute (dictionary)>)``. If histogram is True, returns a pair containing the results for re-identification and attribute inference. The re-identification results is a pair ``(<posterior vulnerability>, <histogram>)`` and attribute inference results is a pair ``(<posterior vulnerability>, <histogram for each sensitive attribute>)``.
-            Example of output when histogram is False::
+            (float, dict[str, float]) or ((float, list), (dict[str, float], dict[str, list])):
+            If distribution is False, returns a pair ``(<posterior re-identification>, <posterior attribute inference for each sensitive attribute (dictionary)>)``. If distribution is True, returns a pair containing the results for re-identification and attribute inference. The re-identification results is a pair ``(<posterior vulnerability>, <distribution>)`` and attribute inference results is a pair ``(<posterior vulnerability>, <distribution for each sensitive attribute>)``.
+            Example of output when distribution is False::
             
                 (0.75, {'disease': 0.3455, 'income':0.7})
 
-            Example of ouput when histogram is True::
+            Example of ouput when distribution is True::
             
-                ((0.75, {'[0,0.50)':7, '[0.50,1]':13}),
+                ((0.75, [0.5, 0.5, 1.0, 1.0, 0.75]),
                  ({'disease': 0.3455, 'income':0.7},
-                  {'disease': {'[0,0.50)':15, '[0.50,1]':5}, 'income':{'[0,0.50)':12, '[0.50,1]':8}}))
+                  {'disease': [0.1, 0.1, 0.3, 0.4, 0.8275],
+                   'income': [0.6, 0.7, 0.7, 0.7, 0.8]}))
         """
         if isinstance(sensitive, str):
             sensitive = [sensitive]
@@ -274,19 +267,17 @@ class Attack():
         # Re-identification
         posterior_reid = n_partitions/self.data.n_rows
 
-        if histogram:
+        if distribution:
             # Create an array with the posterior vulnerability of each record
-            ind_posteriors = []
+            posteriors_reid_record = []
             partition_starts = np.append(partition_starts, self.data.n_rows)
             for i in np.arange(len(partition_starts)-1):
                 partition_size = partition_starts[i+1] - partition_starts[i]
-                ind_posteriors += [1/partition_size] * partition_size
-            
-            hist_reid = privattacks.util.create_histogram(ind_posteriors, bin_size)
+                posteriors_reid_record += [1/partition_size] * partition_size
 
-            # Reset the array for attribute inference's histogram
+            # Reset the array for attribute inference's distribution
             partition_starts = partition_starts[:-1]
-            ind_posteriors = {sens:[] for sens in sensitive}
+            posteriors_ai_record = {sens:[] for sens in sensitive}
 
         # Attribute inference
         posteriors_ai = {}
@@ -309,15 +300,14 @@ class Attack():
                 max_freq = counts.max()
                 posterior += max_freq # Number of times the most frequent element appears
 
-                if histogram:
+                if distribution:
                     partition_size = end-start+1
-                    ind_posteriors[sens] += [max_freq/partition_size] * partition_size
+                    posteriors_ai_record[sens] += [max_freq/partition_size] * partition_size
 
             posteriors_ai[sens] = posterior/self.data.n_rows
 
-        if histogram:
-            hist_ai = {sens:privattacks.util.create_histogram(ind_posteriors[sens], bin_size) for sens in sensitive}
-            return (posterior_reid, hist_reid), (posteriors_ai, hist_ai)
+        if distribution:
+            return (posterior_reid, posteriors_reid_record), (posteriors_ai, posteriors_ai_record)
         
         return posterior_reid, posteriors_ai
 
