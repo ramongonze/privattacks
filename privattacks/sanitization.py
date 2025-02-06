@@ -23,16 +23,49 @@ def krr(value, domain_size, epsilon):
     new_value = np.random.randint(0,domain_size-1)
     return new_value if new_value < value else new_value + 1
 
-def krr_individual(data:privattacks.Data, domain_sizes:dict, epsilons:dict[str, float]):
+def add_noise_krr_ind(params):
+    data_ori, cols, domain_sizes, epsilons, seed, vectorized_krr = params
+    
+    # Re-seed inside the worker so each instance is unique
+    np.random.seed(seed)
+
+    data_san = copy.deepcopy(data_ori)
+    for col in cols:
+        col_idx = data_san.col2int(col)
+        data_san.dataset[:, col_idx] = vectorized_krr(
+            data_san.dataset[:, col_idx],
+            domain_sizes[col],
+            epsilons[col]
+        )
+
+    return data_san
+
+def params_krr_ind(data_ori, cols, domain_sizes, epsilons, n_instances, child_seeds, vectorized_krr):
+    i = 0
+    while i < n_instances:
+        yield (data_ori, cols, domain_sizes, epsilons, child_seeds[i], vectorized_krr)
+        i += 1
+
+def krr_individual(
+        data:privattacks.Data,
+        domain_sizes:dict,
+        epsilons:dict[str, float],
+        n_instances=1,
+        n_processes=1,
+        seed=None
+    ) -> list:
     """k-Randomized-Response (k-RR) mechanism. Adds noise individually to each column.
 
     Parameters:
         data (privattacks.Data): Original data.
         domain_sizes (dict[str, int]): Column domain sizes. Keys are names of columns and values are integers.
         epsilons (dict[str, float]): Privacy parameter. Keys are names of columns and values are float. All values must be greater than zero.
+        n_instances (int, optional): Number of sanitized instances. Default is 1.
+        n_processes (int, optional): Number of cores to run in parallel. Default is 1.
+        seed (int, optional): Seed for randomness.
 
     Returns:
-        data (privattacks.Data): Sanitized dataset.
+        data (list[privattacks.Data]): List of sanitized dataset.
     """
     check_cols(data, set(domain_sizes.keys()))
     check_cols(data, set(epsilons.keys()))
@@ -46,17 +79,27 @@ def krr_individual(data:privattacks.Data, domain_sizes:dict, epsilons:dict[str, 
     # Check if all epsilons are greater than 0
     assert (np.array(list(epsilons.values())) > 0).sum() == len(epsilons), "All epsilons must be greater than zero"
 
-    # Sanitize dataset column by column
+    # If user provided a seed, use it to initialize the random module
+    if seed is not None:
+        np.random.seed(seed)
+    
+     # Generate one child seed per instance
+    child_seeds = [np.random.randint(0, 2**32 - 1) for _ in range(n_instances)]
+
+    # Create sanitized datasets
     vectorized_krr = np.vectorize(krr)
-    data_san = copy.deepcopy(data)
-    for col in cols:
-        col_idx = data_san.col2int(col)
-        data_san.dataset[:, col_idx] = vectorized_krr(
-            data_san.dataset[:, col_idx],
-            domain_sizes[col],
-            epsilons[col]
+    data_san = []
+    with multiprocessing.Pool(processes=n_processes) as pool:
+        # Run the attack for all combination of 'n_qids' QIDs
+        results = pool.imap_unordered(
+            add_noise_krr_ind,
+            params_krr_ind(data, cols, domain_sizes, epsilons, n_instances, child_seeds, vectorized_krr)
         )
 
+        # Get results from the pool
+        for data_san_i in results:
+            data_san.append(data_san_i)
+        
     return data_san
 
 def getidx(domains_arr, tup, mult):
@@ -89,8 +132,11 @@ def multipliers(domain_sizes):
     
     return mult
 
-def add_noise_dataset(params):    
-    new_dataset, qids, epsilon, new_domain_size, qid_domains_arr, qid_domain_sizes = params
+def add_noise_krr_comb(params):    
+    new_dataset, qids, epsilon, new_domain_size, qid_domains_arr, qid_domain_sizes, seed = params
+
+    # Re-seed inside the worker so each instance is unique
+    np.random.seed(seed)
 
     dataset_san = new_dataset.copy()
     # Generate the noised tuple and convert back to original domains
@@ -100,7 +146,8 @@ def add_noise_dataset(params):
 
     return dataset_san.drop("qids_combined", axis=1)
 
-def params(dataset_ori, qids, domains, epsilon, n_instances):
+def params_krr_comb(dataset_ori, qids, domains, epsilon, n_instances, child_seeds):
+    """Parameters for adding noise to dataset with krr_combined."""
     # New new values are integers from 0 to new_domain_size-1
     qid_domains_arr = [domains[qid] for qid in qids]
     qid_domain_sizes = np.array([len(domains[qid]) for qid in qids])
@@ -112,7 +159,7 @@ def params(dataset_ori, qids, domains, epsilon, n_instances):
     
     i = 0
     while i < n_instances:
-        yield (new_dataset, qids, epsilon, new_domain_size, qid_domains_arr, qid_domain_sizes)
+        yield (new_dataset, qids, epsilon, new_domain_size, qid_domains_arr, qid_domain_sizes, child_seeds[i])
         i += 1
 
 def krr_combined(
@@ -121,7 +168,8 @@ def krr_combined(
         domains:dict[str, list],
         epsilon:float,
         n_instances=1,
-        n_processes=1
+        n_processes=1,
+        seed=None
     ) -> list[privattacks.Data]:
     """k-Randomized-Response (k-RR) mechanism. Adds noise to a record considering all quasi-identifiers as one single attribute.
 
@@ -132,18 +180,26 @@ def krr_combined(
         epsilon float: Privacy parameter.
         n_instances (int, optional): Number of sanitized instances. Default is 1.
         n_processes (int, optional): Number of cores to run in parallel. Default is 1.
+        seed (int, optional): Seed for randomness.
 
     Returns:
         san_dataset (list[privattacks.Data]): List of sanitized datasets.
     """
+    # If user provided a seed, use it to initialize the random module
+    if seed is not None:
+        np.random.seed(seed)
+    
+     # Generate one child seed per instance
+    child_seeds = [np.random.randint(0, 2**32 - 1) for _ in range(n_instances)]
+
     data_san = []
     # Create sanitized datasets. The new domain of the single attribute (merged quasi-identifiers)
     # will be the union of all values presented in the original and in all sanitized instances.
     with multiprocessing.Pool(processes=n_processes) as pool:
         # Run the attack for all combination of 'n_qids' QIDs
         results = pool.imap_unordered(
-            add_noise_dataset,
-            params(dataset_ori, qids, domains, epsilon, n_instances)
+            add_noise_krr_comb,
+            params_krr_comb(dataset_ori, qids, domains, epsilon, n_instances, child_seeds)
         )
 
         # Get results from the pool
