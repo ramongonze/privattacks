@@ -370,8 +370,7 @@ class Attack():
     def posterior_ai_subset(
             self,
             qids:list[str],
-            sensitive:Union[str,
-            List[str]],
+            sensitive:Union[str,List[str]],
             num_min,
             num_max,
             save_file=None,
@@ -437,8 +436,7 @@ class Attack():
     def posterior_reid_ai_subset(
             self,
             qids:list[str],
-            sensitive:Union[str,
-            List[str]],
+            sensitive:Union[str,List[str]],
             num_min,
             num_max,
             save_file=None,
@@ -560,8 +558,7 @@ class Attack():
     def posterior_ai_krr_individual(
             self,
             qids:list[str],
-            sensitive:Union[str,
-            List[str]],
+            sensitive:Union[str,List[str]],
             data_san:privattacks.Data,
             epsilons:dict[str,float]
         ):
@@ -628,8 +625,7 @@ class Attack():
     def posterior_reid_ai_krr_individual(
             self,
             qids:list[str],
-            sensitive:Union[str,
-            List[str]],
+            sensitive:Union[str,List[str]],
             data_san:privattacks.Data,
             epsilons:dict[str,float]
         ):
