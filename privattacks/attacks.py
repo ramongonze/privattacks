@@ -142,8 +142,7 @@ class Attack():
     def posterior_ai(
             self,
             qids:list[str],
-            sensitive:Union[str,
-            List[str]],
+            sensitive:Union[str,List[str]],
             distribution=False
         ):
         """
@@ -222,8 +221,7 @@ class Attack():
     def posterior_reid_ai(
             self,
             qids:list[str],
-            sensitive:Union[str,
-            List[str]],
+            sensitive:Union[str,List[str]],
             distribution=False
         ):  
         """
