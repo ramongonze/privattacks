@@ -59,6 +59,12 @@ class Attack():
         qids_subset, sensitive = params
         return (list(qids_subset), self.posterior_ai(list(qids_subset), sensitive))
     
+    def _partial_result_ai_record(self, params):
+        """Required by multiprocessing package in order to use imap_unordered().
+        It also returns the posterior vulnerability per record."""
+        qids_subset, sensitive = params
+        return (list(qids_subset), self.posterior_ai(list(qids_subset), sensitive, distribution=True))
+
     def _partial_result_reid_ai(self, params):
         """Required by multiprocessing package in order to use imap_unordered()."""
         qids_subset, sensitive = params
@@ -135,7 +141,7 @@ class Attack():
                 partition_size = partition_starts[i+1] - partition_starts[i]
                 posteriors_record += [1/partition_size] * partition_size
 
-            return posterior, posteriors_record
+            return posterior, np.array(posteriors_record)
         
         return posterior
     
@@ -214,7 +220,7 @@ class Attack():
             posteriors[sens] = posterior/self.data.n_rows
 
         if distribution:
-            return posteriors, posteriors_record
+            return posteriors, {sens:np.array(posteriors_record[sens]) for sens in sensitive}
         
         return posteriors
 
@@ -305,7 +311,7 @@ class Attack():
             posteriors_ai[sens] = posterior/self.data.n_rows
 
         if distribution:
-            return (posterior_reid, posteriors_reid_record), (posteriors_ai, posteriors_ai_record)
+            return (posterior_reid, np.array(posteriors_reid_record)), (posteriors_ai, {sens:np.array(posteriors_ai_record[sens]) for sens in sensitive})
         
         return posterior_reid, posteriors_ai
 
@@ -374,7 +380,9 @@ class Attack():
             num_min,
             num_max,
             save_file=None,
-            n_processes=1, verbose=False
+            n_processes=1,
+            distribution=False,
+            verbose=False
         ) -> pd.DataFrame:
         """Posterior vulnerability of probabilistic attribute inference attack for subsets of qids. The attack is run for a subset of the powerset of qids, defined by parameters min_size and max_size.
         
@@ -385,6 +393,7 @@ class Attack():
             max_size (int): Maximum size of subset of qids.
             save_file (str, optional): File name to save the results. They will be saved in CSV format.
             n_processes (int, optional): Number of processes to run the method in parallel using multiprocessing package. Default is 1.
+            distribution (bool, optional): Whether to return the distribution of posterior vulnerability per record. Default is False.
             verbose (bool, optional): Show the progress. Default is False.
 
         Returns:
@@ -396,6 +405,8 @@ class Attack():
         self._check_cols(qids + sensitive)
 
         posterior_cols = [f"posterior_{sens}" for sens in sensitive]
+        if distribution:
+            posterior_cols += [f"posterior_{sens}_record" for sens in sensitive]
 
         if save_file is not None:
             # Create a new file with the header
@@ -410,22 +421,34 @@ class Attack():
                 partial_result = []
 
                 # Run the attack for all combination of 'n_qids' QIDs
-                results = pool.imap_unordered(
-                    self._partial_result_ai,
-                    ((comb,sensitive) for comb in it.combinations(qids, n_qids))
-                )
-
-                # Get results from the pool
-                for qids_comb, posterior in results:
-                    posteriors_partial = [float_format.format(posterior[sens]) for sens in sensitive]
-                    partial_result.append([int(n_qids), ",".join(qids_comb)] + posteriors_partial)
+                if distribution:
+                    results = pool.imap_unordered(
+                        self._partial_result_ai_record,
+                        ((comb,sensitive) for comb in it.combinations(qids, n_qids))
+                    )
+                    
+                    # Get results from the pool
+                    for qids_comb, posterior in results:
+                        posterior_vul, posterior_vul_record = posterior
+                        posteriors_partial = [float_format.format(posterior_vul[sens]) for sens in sensitive]
+                        posterior_vul_record = [[float_format.format(p) for p in posterior_vul_record[sens]] for sens in sensitive]
+                        partial_result.append([int(n_qids), ",".join(qids_comb)] + posteriors_partial + posterior_vul_record)
+                else:
+                    results = pool.imap_unordered(
+                        self._partial_result_ai,
+                        ((comb,sensitive) for comb in it.combinations(qids, n_qids))
+                    )
+                    
+                    # Get results from the pool
+                    for qids_comb, posterior in results:
+                        posteriors_partial = [float_format.format(posterior[sens]) for sens in sensitive]
+                        partial_result.append([int(n_qids), ",".join(qids_comb)] + posteriors_partial)
                 
                 # Save once finished all combinations for 'n_qids'
                 posteriors.extend(partial_result)
                 
                 # Append to save_file
                 if save_file is not None:
-                    float_format = "{:.8f}"  # For 8 decimal places
                     with open(save_file, mode="a", newline="") as file:
                         writer = csv.writer(file)
                         writer.writerows(partial_result)
