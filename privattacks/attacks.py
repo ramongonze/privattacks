@@ -446,7 +446,7 @@ class Attack():
                         # Append to save_file
                         with open(save_file, mode="a", newline="") as file:
                             writer = csv.writer(file)
-                            writer.writerows([posteriors_partial])
+                            writer.writerows([[int(n_qids), ",".join(qids_comb)] + posteriors_partial + posterior_vul_record])
                             
                     if return_results:
                         partial_result.append([int(n_qids), ",".join(qids_comb)] + posteriors_partial + posterior_vul_record)
