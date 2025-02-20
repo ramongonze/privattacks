@@ -339,7 +339,7 @@ class Attack():
         """
         self._check_cols(qids)
 
-        if save_file is not None:
+        if save_file:
             # Create a new file with the header
             with open(save_file, mode="w") as file:
                 file.write("n_qids,qids,posterior_reid\n") # Header
@@ -365,7 +365,7 @@ class Attack():
                 posteriors.extend(partial_result)
 
                 # Append to save_file
-                if save_file is not None:
+                if save_file:
                     with open(save_file, mode="a", newline="") as file:
                         writer = csv.writer(file)
                         writer.writerows(partial_result)
@@ -382,8 +382,9 @@ class Attack():
             save_file=None,
             n_processes=1,
             distribution=False,
+            return_results=True,
             verbose=False
-        ) -> pd.DataFrame:
+        ):
         """Posterior vulnerability of probabilistic attribute inference attack for subsets of qids. The attack is run for a subset of the powerset of qids, defined by parameters min_size and max_size.
         
         Parameters:
@@ -394,6 +395,7 @@ class Attack():
             save_file (str, optional): File name to save the results. They will be saved in CSV format.
             n_processes (int, optional): Number of processes to run the method in parallel using multiprocessing package. Default is 1.
             distribution (bool, optional): Whether to return the distribution of posterior vulnerability per record. Default is False.
+            return_results (bool, optional): Whether to return the results or not. Default is True.
             verbose (bool, optional): Show the progress. Default is False.
 
         Returns:
@@ -407,12 +409,15 @@ class Attack():
         posterior_cols = [f"posterior_{sens}" for sens in sensitive]
         if distribution:
             posterior_cols += [f"posterior_{sens}_record" for sens in sensitive]
+            partial_method = self._partial_result_ai_record
+        else:
+            partial_method = self._partial_result_ai
 
-        if save_file is not None:
+        if save_file:
             # Create a new file with the header
             with open(save_file, mode="w") as file:
                 file.write(",".join(["n_qids", "qids"] + posterior_cols) + "\n") # Header
-        
+
         float_format = "{:.8f}"  # For 8 decimal places
         posteriors = []
         with multiprocessing.Pool(processes=n_processes) as pool:
@@ -421,40 +426,38 @@ class Attack():
                 partial_result = []
 
                 # Run the attack for all combination of 'n_qids' QIDs
-                if distribution:
-                    results = pool.imap_unordered(
-                        self._partial_result_ai_record,
-                        ((comb,sensitive) for comb in it.combinations(qids, n_qids))
-                    )
-                    
-                    # Get results from the pool
-                    for qids_comb, posterior in results:
+                results = pool.imap_unordered(
+                    partial_method,
+                    ((comb,sensitive) for comb in it.combinations(qids, n_qids))
+                )
+
+                # Get results from the pool
+                for qids_comb, posterior in results:
+                    if distribution:    
                         posterior_vul, posterior_vul_record = posterior
-                        posteriors_partial = [float_format.format(posterior_vul[sens]) for sens in sensitive]
                         posterior_vul_record = [[float_format.format(p) for p in posterior_vul_record[sens]] for sens in sensitive]
-                        partial_result.append([int(n_qids), ",".join(qids_comb)] + posteriors_partial + posterior_vul_record)
-                else:
-                    results = pool.imap_unordered(
-                        self._partial_result_ai,
-                        ((comb,sensitive) for comb in it.combinations(qids, n_qids))
-                    )
+                    else:
+                        posterior_vul = posterior
+                        posterior_vul_record = []
                     
-                    # Get results from the pool
-                    for qids_comb, posterior in results:
-                        posteriors_partial = [float_format.format(posterior[sens]) for sens in sensitive]
-                        partial_result.append([int(n_qids), ",".join(qids_comb)] + posteriors_partial)
+                    posteriors_partial = [float_format.format(posterior_vul[sens]) for sens in sensitive]
+                        
+                    if save_file:
+                        # Append to save_file
+                        with open(save_file, mode="a", newline="") as file:
+                            writer = csv.writer(file)
+                            writer.writerows([posteriors_partial])
+                            
+                    if return_results:
+                        partial_result.append([int(n_qids), ",".join(qids_comb)] + posteriors_partial + posterior_vul_record)
                 
-                # Save once finished all combinations for 'n_qids'
-                posteriors.extend(partial_result)
-                
-                # Append to save_file
-                if save_file is not None:
-                    with open(save_file, mode="a", newline="") as file:
-                        writer = csv.writer(file)
-                        writer.writerows(partial_result)
+                if return_results:
+                    # Save once finished all combinations for 'n_qids'
+                    posteriors.extend(partial_result)
         
-        posteriors = pd.DataFrame(posteriors, columns=["n_qids", "qids"] + posterior_cols)
-        return posteriors
+        if return_results:
+            posteriors = pd.DataFrame(posteriors, columns=["n_qids", "qids"] + posterior_cols)
+            return posteriors
     
     def posterior_reid_ai_subset(
             self,
@@ -487,7 +490,7 @@ class Attack():
 
         posterior_cols = [f"posterior_{sens}" for sens in sensitive]
 
-        if save_file is not None:
+        if save_file:
             # Create a new file with the header
             with open(save_file, mode="w") as file:
                 file.write(",".join(["n_qids", "qids", "posterior_reid"] + posterior_cols) + "\n") # Header
@@ -518,7 +521,7 @@ class Attack():
                 posteriors.extend(partial_result)
                 
                 # Append to save_file
-                if save_file is not None:
+                if save_file:
                     float_format = "{:.8f}"  # For 8 decimal places
                     with open(save_file, mode="a", newline="") as file:
                         writer = csv.writer(file)
