@@ -1,3 +1,4 @@
+import os
 import csv
 import math
 import privattacks
@@ -6,8 +7,8 @@ import pandas as pd
 from tqdm import tqdm
 import multiprocessing
 import itertools as it
-from typing import Union, List, Tuple, Dict
-
+from typing import Union, List
+import zipfile
 import privattacks.util
 
 class Attack():
@@ -380,6 +381,7 @@ class Attack():
             num_min,
             num_max,
             save_file=None,
+            zip_save=False,
             n_processes=1,
             distribution=False,
             return_results=True,
@@ -393,6 +395,7 @@ class Attack():
             min_size (int): Minimum size of subset of qids.
             max_size (int): Maximum size of subset of qids.
             save_file (str, optional): File name to save the results. They will be saved in CSV format.
+            zip_save (bool, optional): Save the results in a zip file insteade of csv. Default is False.
             n_processes (int, optional): Number of processes to run the method in parallel using multiprocessing package. Default is 1.
             distribution (bool, optional): Whether to return the distribution of posterior vulnerability per record. Default is False.
             return_results (bool, optional): Whether to return the results or not. Default is True.
@@ -455,6 +458,16 @@ class Attack():
                     # Save once finished all combinations for 'n_qids'
                     posteriors.extend(partial_result)
         
+        if save_file and zip_save:
+            # Replace the csv file by a zip version of it
+            zip_path = save_file.replace(".csv", ".zip")
+            
+            # Create a ZIP and adds the CSV inside it
+            with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zipf:
+                zipf.write(save_file, arcname=file)
+            
+            os.remove(save_file)
+
         if return_results:
             posteriors = pd.DataFrame(posteriors, columns=["n_qids", "qids"] + posterior_cols)
             return posteriors
