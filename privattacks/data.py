@@ -63,10 +63,9 @@ class Data:
         elif file_name is not None:
             file_type = self._file_extension(file_name)
             
-            if file_type == ".csv":
+            if file_type == ".csv" or ".zip":
                 if sep_csv is None:
-                    raise NameError("sep_csv must be provided for CSV files")
-                
+                    raise NameError("sep_csv must be provided for csv files")
                 dataframe = pd.read_csv(file_name, sep=sep_csv, usecols=cols, encoding=encoding)
             elif file_type == ".rdata":
                 rdata = pyreadr.read_r(file_name)
@@ -75,7 +74,7 @@ class Data:
             elif file_type == ".sas7bdat":
                 dataframe = pd.read_sas(file_name)
             else:
-                raise TypeError("The only supported files are 'csv', 'rdata' and 'sas7bdat'")
+                raise TypeError("The only supported files are 'csv', 'rdata' and 'sas7bdat' or zip versions of them")
         else:
             raise TypeError("Either file_name or dataframe must be given")
         
