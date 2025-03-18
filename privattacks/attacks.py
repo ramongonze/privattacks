@@ -459,13 +459,13 @@ class Attack():
                     posteriors.extend(partial_result)
         
         if save_file and zip_save:
-            # Replace the csv file by a zip version of it
-            zip_path = save_file.replace(".csv", ".zip")
-            
-            # Create a ZIP and adds the CSV inside it
-            with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zipf:
-                zipf.write(save_file, arcname=file)
-            
+            posteriors = pd.DataFrame(posteriors, columns=["n_qids", "qids"] + posterior_cols)
+            posteriors.to_csv(
+                save_file.replace(".csv", ".zip"),
+                index=False,
+                float_format="%.8f",
+                compression={'method': 'zip', 'archive_name': save_file}
+            )
             os.remove(save_file)
 
         if return_results:
