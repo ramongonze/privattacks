@@ -462,7 +462,7 @@ class Attack():
             # Create zip and add the csv inside it
             zip_path = save_file.replace(".csv", ".zip")
             with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zipf:
-                zipf.write(save_file, arcname=file)
+                zipf.write(save_file, arcname=os.path.basename(save_file))
             
             # Remove csv file
             os.remove(save_file)
