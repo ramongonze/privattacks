@@ -103,7 +103,12 @@ class Data:
 
     def col2int(self, col) -> int:
         """Index of a column in the dataset numpy matrix."""
-        return self.cols.index(col)
+        if isinstance(col, str):
+            return self.cols.index(col)
+        elif isinstance(col, list):
+            return [self.cols.index(i) for i in col]
+        else:
+            raise ValueError("col must be a string or a list of strings.")
 
     def np2df(self) -> pd.DataFrame:
         """Convert the numpy matrix to the dataset original domains.
