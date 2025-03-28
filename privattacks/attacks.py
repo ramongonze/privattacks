@@ -41,7 +41,7 @@ class Attack():
                 
     def _sort_dataset(self, cols:list[str]):
         """Sort dataset by a given set of columns. Returns a sorted copy of the dataset (only the given columns)."""
-        cols_idx = [self.data.col2int(col) for col in cols]
+        cols_idx = self.data.col2int(cols)
         
         # Sort in ascending order (lexicographical sort) 
         # The order must be reversed to use numpy.lexsort (order of priority)
@@ -564,7 +564,7 @@ class Attack():
         # Transform into numpy arrays
         domain_sizes = np.array([len(self.data.domains[qid]) for qid in qids])
         epsilons = np.array([epsilons[qid] for qid in qids])
-        qid_idxs = [self.data.col2int(qid) for qid in qids]
+        qid_idxs = self.data.col2int(qids)
 
         dataset_ori = self.data.dataset[:, qid_idxs]
         dataset_san = data_san.dataset[:, qid_idxs]
@@ -620,7 +620,7 @@ class Attack():
         # Transform into numpy arrays
         domain_sizes = np.array([len(self.data.domains[qid]) for qid in qids])
         epsilons = np.array([epsilons[qid] for qid in qids])
-        qid_idxs = [self.data.col2int(qid) for qid in qids]
+        qid_idxs = self.data.col2int(qids)
 
         dataset_ori = self.data.dataset[:, qid_idxs]
         dataset_san = data_san.dataset[:, qid_idxs]
@@ -687,7 +687,7 @@ class Attack():
         # Transform into numpy arrays
         domain_sizes = np.array([len(self.data.domains[qid]) for qid in qids])
         epsilons = np.array([epsilons[qid] for qid in qids])
-        qid_idxs = [self.data.col2int(qid) for qid in qids]
+        qid_idxs = self.data.col2int(qids)
 
         dataset_ori = self.data.dataset[:, qid_idxs]
         dataset_san = data_san.dataset[:, qid_idxs]
@@ -754,7 +754,7 @@ class Attack():
         self._check_cols(qids)
 
         domain_size_combined_qids = np.array([len(self.data.domains[qid]) for qid in qids]).prod()
-        qid_idxs = [self.data.col2int(qid) for qid in qids]
+        qid_idxs = self.data.col2int(qids)
 
         dataset_ori = self.data.dataset[:, qid_idxs]
         dataset_san = data_san.dataset[:, qid_idxs]
@@ -813,7 +813,7 @@ class Attack():
         self._check_cols(qids + sensitive)
 
         domain_size_combined_qids = np.array([len(self.data.domains[qid]) for qid in qids]).prod()
-        qid_idxs = [self.data.col2int(qid) for qid in qids]
+        qid_idxs = self.data.col2int(qids)
 
         dataset_ori = self.data.dataset[:, qid_idxs]
         dataset_san = data_san.dataset[:, qid_idxs]
@@ -882,7 +882,7 @@ class Attack():
         self._check_cols(qids + sensitive)
 
         domain_size_combined_qids = np.array([len(self.data.domains[qid]) for qid in qids]).prod()
-        qid_idxs = [self.data.col2int(qid) for qid in qids]
+        qid_idxs = self.data.col2int(qids)
 
         dataset_ori = self.data.dataset[:, qid_idxs]
         dataset_san = data_san.dataset[:, qid_idxs]
