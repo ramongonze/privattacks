@@ -329,8 +329,8 @@ class Attack():
         
         Parameters:
             qids (list[str]): List of quasi-identifiers.
-            min_size (int): Minimum size of subset of qids.
-            max_size (int): Maximum size of subset of qids.
+            num_min (int): Minimum size of subset of qids.
+            num_max (int): Maximum size of subset of qids.
             save_file (str, optional): File name to save the results. They will be saved in CSV format.
             n_processes (int, optional): Number of processes to run the method in parallel using multiprocessing package. Default is 1.
             verbose (bool, optional): Show the progress. Default is False.
@@ -392,8 +392,8 @@ class Attack():
         Parameters:
             qids (list[str]): List of quasi-identifiers.
             sensitive (str, list[str]): A single or a list of sensitive attributes.
-            min_size (int): Minimum size of subset of qids.
-            max_size (int): Maximum size of subset of qids.
+            num_min (int): Minimum size of subset of qids.
+            num_max (int): Maximum size of subset of qids.
             save_file (str, optional): File name to save the results. They will be saved in CSV format.
             zip_save (bool, optional): Save the results in a zip file insteade of csv. Default is False.
             n_processes (int, optional): Number of processes to run the method in parallel using multiprocessing package. Default is 1.
@@ -486,8 +486,8 @@ class Attack():
         Parameters:
             qids (list[str]): List of quasi-identifiers.
             sensitive (str, list[str]): A single or a list of sensitive attributes.
-            min_size (int): Minimum size of subset of qids.
-            max_size (int): Maximum size of subset of qids.
+            num_min (int): Minimum size of subset of qids.
+            num_max (int): Maximum size of subset of qids.
             save_file (str, optional): File name to save the results. They will be saved in CSV format.
             n_processes (int, optional): Number of processes to run the method in parallel using multiprocessing package. Default is 1.
             verbose (bool, optional): Show the progress. Default is False.
