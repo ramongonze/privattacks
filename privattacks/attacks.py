@@ -55,6 +55,11 @@ class Attack():
         """Required by multiprocessing package in order to use imap_unordered()."""
         return (list(qids_subset), self.posterior_reid(list(qids_subset)))
 
+    def _partial_result_reid_record(self, qids_subset:list[str]):
+        """Required by multiprocessing package in order to use imap_unordered().
+        It also returns the posterior vulnerability per record."""
+        return (list(qids_subset), self.posterior_reid(list(qids_subset), distribution=True))
+
     def _partial_result_ai(self, params):
         """Required by multiprocessing package in order to use imap_unordered()."""
         qids_subset, sensitive = params
@@ -316,29 +321,43 @@ class Attack():
         
         return posterior_reid, posteriors_ai
 
+    # Subset ########################################
     def posterior_reid_subset(
             self,
             qids:list[str],
             num_min,
             num_max,
             save_file=None,
+            zip_save=False,
             n_processes=1,
+            distribution=False,
+            return_results=True,
             verbose=False
         ) -> pd.DataFrame:
-        """Posterior vulnerability of probabilistic re-identification attack for subsets of qids. The attack is run for a subset of the powerset of qids, defined by parameters min_size and max_size. 
+        """Posterior vulnerability of probabilistic re-identification attack for subsets of qids. The attack is run for a subset of the powerset of qids, defined by parameters num_min and num_max. 
         
         Parameters:
             qids (list[str]): List of quasi-identifiers.
             num_min (int): Minimum size of subset of qids.
             num_max (int): Maximum size of subset of qids.
             save_file (str, optional): File name to save the results. They will be saved in CSV format.
+            zip_save (bool, optional): Save the results in a zip file insteade of csv. Default is False.
             n_processes (int, optional): Number of processes to run the method in parallel using multiprocessing package. Default is 1.
+            distribution (bool, optional): Whether to return the distribution of posterior vulnerability per record. Default is False.
+            return_results (bool, optional): Whether to return the results or not. Default is True.
             verbose (bool, optional): Show the progress. Default is False.
 
         Returns:
             (pandas.DataFrame): A pandas DataFrame containing columns "n_qids", "qids" and "posterior_reid", representing the number of qids in the combination, the actual combination and the posterior vulnerability for the given qid combination, respectively.
         """
         self._check_cols(qids)
+
+        posterior_cols = ["posterior_reid"]
+        if distribution:
+            posterior_cols += ["posterior_reid_record"]
+            partial_method = self._partial_result_reid_record
+        else:
+            partial_method = self._partial_result_reid
 
         if save_file:
             # Create a new file with the header
@@ -350,29 +369,50 @@ class Attack():
         with multiprocessing.Pool(processes=n_processes) as pool:
             # For qid combinations in the given range run re-identification attack
             for n_qids in tqdm(np.arange(num_min, num_max + 1), desc="Qids combination size", disable=(not verbose)):
-                partial_result = []
 
                 # Run the attack for all combination of 'n_qids' QIDs
                 results = pool.imap_unordered(
-                    self._partial_result_reid,
+                    partial_method,
                     it.combinations(qids, n_qids)
                 )
 
                 # Get results from the pool
+                partial_result = []
                 for qids_comb, posterior in results:
-                    partial_result.append([int(n_qids), ",".join(qids_comb), float_format.format(posterior)])
-                
-                # Save once finished all combinations for 'n_qids'
-                posteriors.extend(partial_result)
+                    if distribution:
+                        posterior_vul, posterior_vul_record = posterior
+                        posterior_vul_record = [float_format.format(p) for p in posterior_vul_record]
+                    else:
+                        posterior_vul = posterior
+                        posterior_vul_record = []    
+                    
+                    posterior_partial = [float_format.format(posterior_vul)]
 
-                # Append to save_file
-                if save_file:
-                    with open(save_file, mode="a", newline="") as file:
-                        writer = csv.writer(file)
-                        writer.writerows(partial_result)
-        
-        posteriors = pd.DataFrame(posteriors, columns=["n_qids", "qids", "posterior_reid"])
-        return posteriors
+                    if save_file:
+                        # Append to save_file
+                        with open(save_file, mode="a", newline="") as file:
+                            writer = csv.writer(file)
+                            writer.writerows([[int(n_qids), ",".join(qids_comb)] + posterior_partial + posterior_vul_record])
+                            
+                    if return_results:
+                        partial_result.append([int(n_qids), ",".join(qids_comb)] + posterior_partial + posterior_vul_record)
+                
+                if return_results:
+                    # Save once finished all combinations for 'n_qids'
+                    posteriors.extend(partial_result)
+
+        if zip_save:
+            # Create zip and add the csv inside it
+            zip_path = save_file.replace(".csv", ".zip")
+            with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zipf:
+                zipf.write(save_file, arcname=os.path.basename(save_file))
+            
+            # Remove csv file
+            os.remove(save_file)
+
+        if return_results:
+            posteriors = pd.DataFrame(posteriors, columns=["n_qids", "qids"] + posterior_cols)
+            return posteriors
         
     def posterior_ai_subset(
             self,
@@ -387,7 +427,7 @@ class Attack():
             return_results=True,
             verbose=False
         ):
-        """Posterior vulnerability of probabilistic attribute inference attack for subsets of qids. The attack is run for a subset of the powerset of qids, defined by parameters min_size and max_size.
+        """Posterior vulnerability of probabilistic attribute inference attack for subsets of qids. The attack is run for a subset of the powerset of qids, defined by parameters num_min and num_max.
         
         Parameters:
             qids (list[str]): List of quasi-identifiers.
@@ -426,7 +466,6 @@ class Attack():
         with multiprocessing.Pool(processes=n_processes) as pool:
             # For qid combinations in the given range run re-identification attack
             for n_qids in tqdm(np.arange(num_min, num_max + 1), desc="Qids combination size", disable=(not verbose)):
-                partial_result = []
 
                 # Run the attack for all combination of 'n_qids' QIDs
                 results = pool.imap_unordered(
@@ -435,6 +474,7 @@ class Attack():
                 )
 
                 # Get results from the pool
+                partial_result = []
                 for qids_comb, posterior in results:
                     if distribution:    
                         posterior_vul, posterior_vul_record = posterior
@@ -481,7 +521,7 @@ class Attack():
             n_processes=1,
             verbose=False
         ) -> pd.DataFrame:
-        """Posterior vulnerability of probabilistic re-identification and attribute inference attack for subsets of qids. The attack is run for a subset of the powerset of qids, defined by parameters min_size and max_size.
+        """Posterior vulnerability of probabilistic re-identification and attribute inference attack for subsets of qids. The attack is run for a subset of the powerset of qids, defined by parameters num_min and num_max.
         
         Parameters:
             qids (list[str]): List of quasi-identifiers.
@@ -542,6 +582,7 @@ class Attack():
         posteriors = pd.DataFrame(posteriors, columns=["n_qids", "qids", "posterior_reid"] + posterior_cols)
         return posteriors
     
+    # KRR ########################################
     def posterior_reid_krr_individual(
             self,
             qids:list[str],
