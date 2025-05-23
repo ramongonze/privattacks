@@ -4,10 +4,11 @@ install_requires = [
     "pandas",
     "numpy",
     "tqdm",
-    "pyreadr"
+    "pyreadr",
+    "zipfile"
 ]
 
-setuptools.setup(
+setuptools.setup( 
     name="privattacks",
     version="1.0",
     python_requires=">=3.9",
