@@ -10,6 +10,65 @@ def check_cols(data:privattacks.Data, cols:list[str]):
         if col not in data.cols:
             raise ValueError(f"Column {col} not in the dataset.")
 
+def _mechanism(
+        mechanism,
+        data:privattacks.Data,
+        domain_sizes:dict,
+        epsilons:dict[str, float],
+        n_instances,
+        n_processes,
+        seed=None
+    ) -> list:
+    """General method to apply noise using DP mechanisms individually to each column.
+
+    Parameters:
+        mechanism: Differentially private mechanism function. It should receive 3 parameters as input (value, domain_size and epsilon, in this order) and output 1 value.
+        data (privattacks.Data): Original data.
+        domain_sizes (dict[str, int]): Column domain sizes. Keys are names of columns and values are integers.
+        epsilons (dict[str, float]): Privacy parameter. Keys are names of columns and values are float. All values must be greater than zero.
+        n_instances (int, optional): Number of sanitized instances. Default is 1.
+        n_processes (int, optional): Number of cores to run in parallel. Default is 1.
+        seed (int, optional): Seed for randomness.
+
+    Returns:
+        data (list[privattacks.Data]): List of sanitized dataset.
+    """
+    check_cols(data, set(domain_sizes.keys()))
+    check_cols(data, set(epsilons.keys()))
+
+    # Check if the set of variables is the same for parameters domain_sizes and epsilons
+    if set(domain_sizes.keys()) != set(epsilons.keys()):
+        raise ValueError("The set of columns of parameters domain_sizes and epsilons are different.")
+
+    cols = list(domain_sizes.keys())
+
+    # Check if all epsilons are greater than 0
+    assert (np.array(list(epsilons.values())) > 0).sum() == len(epsilons), "All epsilons must be greater than zero"
+
+    # If user provided a seed, use it to initialize the random module
+    if seed is not None:
+        np.random.seed(seed)
+    
+     # Generate one child seed per instance
+    child_seeds = [np.random.randint(0, 2**32 - 1) for _ in range(n_instances)]
+
+    # Create sanitized datasets
+    vectorized_mechanism = np.vectorize(mechanism)
+    data_san = []
+    with multiprocessing.Pool(processes=n_processes) as pool:
+        # Run the attack for all combination of 'n_qids' QIDs
+        results = pool.imap_unordered(
+            add_noise_krr_ind,
+            params_krr_ind(data, cols, domain_sizes, epsilons, n_instances, child_seeds, vectorized_mechanism)
+        )
+
+        # Get results from the pool
+        for data_san_i in results:
+            data_san.append(data_san_i)
+        
+    return data_san
+
+# kRR individual #############################
 def krr(value, domain_size, epsilon):
     """It's assumed the domain values are in [0, domain_size-1]."""
     # Probability to keep the original value
@@ -50,13 +109,14 @@ def krr_individual(
         data:privattacks.Data,
         domain_sizes:dict,
         epsilons:dict[str, float],
-        n_instances=1,
-        n_processes=1,
+        n_instances,
+        n_processes,
         seed=None
     ) -> list:
     """k-Randomized-Response (k-RR) mechanism. Adds noise individually to each column.
 
     Parameters:
+        mechanism: Differentially private mechanism function. It should receive 3 parameters as input (value, domain_size and epsilon, in this order) and output 1 value.
         data (privattacks.Data): Original data.
         domain_sizes (dict[str, int]): Column domain sizes. Keys are names of columns and values are integers.
         epsilons (dict[str, float]): Privacy parameter. Keys are names of columns and values are float. All values must be greater than zero.
@@ -67,41 +127,9 @@ def krr_individual(
     Returns:
         data (list[privattacks.Data]): List of sanitized dataset.
     """
-    check_cols(data, set(domain_sizes.keys()))
-    check_cols(data, set(epsilons.keys()))
+    return _mechanism(krr, data, domain_sizes, epsilons, n_instances, n_processes, seed)
 
-    # Check if the set of variables is the same for parameters domain_sizes and epsilons
-    if set(domain_sizes.keys()) != set(epsilons.keys()):
-        raise ValueError("The set of columns of parameters domain_sizes and epsilons are different.")
-
-    cols = list(domain_sizes.keys())
-
-    # Check if all epsilons are greater than 0
-    assert (np.array(list(epsilons.values())) > 0).sum() == len(epsilons), "All epsilons must be greater than zero"
-
-    # If user provided a seed, use it to initialize the random module
-    if seed is not None:
-        np.random.seed(seed)
-    
-     # Generate one child seed per instance
-    child_seeds = [np.random.randint(0, 2**32 - 1) for _ in range(n_instances)]
-
-    # Create sanitized datasets
-    vectorized_krr = np.vectorize(krr)
-    data_san = []
-    with multiprocessing.Pool(processes=n_processes) as pool:
-        # Run the attack for all combination of 'n_qids' QIDs
-        results = pool.imap_unordered(
-            add_noise_krr_ind,
-            params_krr_ind(data, cols, domain_sizes, epsilons, n_instances, child_seeds, vectorized_krr)
-        )
-
-        # Get results from the pool
-        for data_san_i in results:
-            data_san.append(data_san_i)
-        
-    return data_san
-
+# k-RR combined ############################
 def getidx(domains_arr, tup, mult):
     # Merge quasi-identifier columns into a single column
     # Calculate the index
@@ -207,3 +235,75 @@ def krr_combined(
             data_san.append(privattacks.Data(dataframe=data_san_i.copy(), domains=domains))
         
     return data_san
+
+# Geometric truncated #############################
+def prob_geo(x,y,n,epsilon):
+    """Geometric truncated mechanism. It gives the probabilty Pr[y|x] of output y given x.
+    The values are truncated in the interval [0,n].
+
+    Parameters:
+        x (int): Original value.
+        y (int): Output value.
+        n (int): Domain size.
+        epsilon (float): Privacy parameter.
+    """
+    alpha = np.exp((-epsilon)/n)
+    if 0 < y < n:
+        return int((1-alpha)/(1+alpha) * alpha**abs(x-y))
+    elif y == 0:
+        return int((alpha**x)/(1+alpha))
+
+    # y == n
+    return int((alpha**abs(x-n))/(1+alpha))
+
+def geo_truncated(value, domain_size, epsilon):
+    """It's assumed the domain values are in [0, domain_size]."""
+    domain = np.arange(domain_size) 
+    print([prob_geo(value, y, domain_size, epsilon) for y in domain])
+    return np.random.choice(domain, p=[prob_geo(value, y, domain_size, epsilon) for y in domain])
+
+def add_noise_geometric_truncated(params):
+    data_ori, cols, domain_sizes, epsilons, seed, vectorized_geo = params
+    
+    # Re-seed inside the worker so each instance is unique
+    np.random.seed(seed)
+
+    data_san = copy.deepcopy(data_ori)
+    for col in cols:
+        col_idx = data_san.col2int(col)
+        data_san.dataset[:, col_idx] = vectorized_geo(
+            data_san.dataset[:, col_idx],
+            domain_sizes[col],
+            epsilons[col]
+        )
+
+    return data_san
+
+def params_geometric_truncated(data_ori, cols, domain_sizes, epsilons, n_instances, child_seeds, vectorized_geo):
+    i = 0
+    while i < n_instances:
+        yield (data_ori, cols, domain_sizes, epsilons, child_seeds[i], vectorized_geo)
+        i += 1
+
+def geometric_truncated(
+        data:privattacks.Data,
+        domain_sizes:dict,
+        epsilons:dict[str, float],
+        n_instances=1,
+        n_processes=1,
+        seed=None
+    ) -> list:
+    """Geometric truncated mechanism. Adds noise individually to each column.
+
+    Parameters:
+        data (privattacks.Data): Original data.
+        domain_sizes (dict[str, int]): Column domain sizes. Keys are names of columns and values are integers.
+        epsilons (dict[str, float]): Privacy parameter. Keys are names of columns and values are float. All values must be greater than zero.
+        n_instances (int, optional): Number of sanitized instances. Default is 1.
+        n_processes (int, optional): Number of cores to run in parallel. Default is 1.
+        seed (int, optional): Seed for randomness.
+
+    Returns:
+        data (list[privattacks.Data]): List of sanitized dataset.
+    """
+    return _mechanism(geo_truncated, data, domain_sizes, epsilons, n_instances, n_processes, seed)
