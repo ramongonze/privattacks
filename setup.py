@@ -4,7 +4,10 @@ install_requires = [
     "pandas",
     "numpy",
     "tqdm",
-    "pyreadr"
+    "pyreadr",
+    "sphinx",
+    "sphinx-autodoc-typehints",
+    "sphinx_rtd_theme"
 ]
 
 setuptools.setup( 
