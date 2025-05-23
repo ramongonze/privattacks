@@ -9,7 +9,6 @@ import multiprocessing
 import itertools as it
 from typing import Union, List
 import zipfile
-import privattacks.util
 
 class Attack():
 
