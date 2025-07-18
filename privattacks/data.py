@@ -10,11 +10,13 @@ class Data:
 
     Parameters:
         file_name (str, optional): Dataset file path.
-        cols (list, optional): Columns to be read from the file. When not given, all columns will be read.
+        cols (list, optional): Dataset columns. If not given when given file_name, read all columns in the file.
         cols_to_ignore (list, optional): Columns to ignore in the convertion to integers from 0 to domain_size-1. It must be used for columns with integer values only.
         sep_csv (str, optional): CSV delimiter, default is ",".
-        encoding: (str, optional, default 'utf-8'): Encoding to use for UTF when reading/writing (ex. 'utf-8', 'latin1'). [List of Python standard encodings](https://docs.python.org/3/library/codecs.html#standard-encodings).
+        encoding: (str, optional, default 'utf-8'): Encoding to use for UTF when reading/writing (ex. 'utf-8', 'latin1'). [https://docs.python.org/3/library/codecs.html#standard-encodings](List of Python standard encodings).
         dataframe (pandas.DataFrame, optional): Pandas dataframe containing the dataset.
+        matrix (numpy.ndarray, optional): Numpy 2d matrix containing the dataset.
+        domains (dict[str, list], optional): Domain of columns. If not given, the domains will be taken from data. Keys are column names and values are lists.
         na_values (int, optional): Value to fill missing data (NaN) with, default is -1.
 
     Attributes:
