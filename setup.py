@@ -1,14 +1,19 @@
 import setuptools
 
-install_requires = [
-    "pandas",
-    "numpy",
-    "tqdm",
-    "pyreadr",
+# Read dependencies from requirements.txt
+def parse_requirements(filename):
+    with open(filename, 'r') as f:
+        lines = f.read().splitlines()
+        # Filter out comments and empty lines
+        return [line.strip() for line in lines if line.strip() and not line.startswith('#')]
+
+install_requires = parse_requirements('requirements.txt')
+docs_requires = [
     "sphinx",
     "sphinx-autodoc-typehints",
     "sphinx_rtd_theme"
 ]
+install_requires += docs_requires
 
 setuptools.setup( 
     name="privattacks",
