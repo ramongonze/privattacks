@@ -7,7 +7,6 @@ import pandas as pd
 from tqdm import tqdm
 import multiprocessing
 import itertools as it
-from typing import Union, List, Sequence
 import zipfile
 
 class Attack():

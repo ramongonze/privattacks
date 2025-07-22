@@ -6,8 +6,7 @@
 Privattacks documentation
 =========================
 
-Privattacks - Python package for re-identification and attribute inference attacks.
-
+Privattacks is a Python package for evaluating privacy risks in tabular datasets. It provides tools to quantify re-identification and attribute inference vulnerabilities based on combinations of quasi-identifiers an adversary knows about a target. The package supports both high-level and granular analysis, including per-record vulnerability distributions, multiprocessing for efficiency, and flexible input handling via pandas DataFrames and other sources.
 
 .. toctree::
    :maxdepth: 2
