@@ -7,7 +7,7 @@ import pandas as pd
 from tqdm import tqdm
 import multiprocessing
 import itertools as it
-from typing import Union, List
+from typing import Union, List, Sequence
 import zipfile
 
 class Attack():
@@ -28,6 +28,131 @@ class Attack():
         """
         self.data = data
 
+    def prior_vulnerability(
+            self,
+            atk,
+            sensitive=[]
+        ):
+        """Prior vulnerability.
+
+        Parameters:
+            atk (str): Either 'ai' for attribute inference attack, 'reid' for re-identification or 'all' for both attacks. Default is [].
+            sensitive (str or Sequence[str], optional): A single or a list of sensitive attributes for attribute inference attack.
+
+        Returns:
+            if atk == 'reid':
+                float: Prior vulnerability.
+
+            if atk == 'ai':
+                dict[str, float]: Dictionary containing the prior vulnerability for each sensitive attribute (keys are sensitive attribute names and values are posterior vulnerabilities).
+
+            if atk == 'all':
+                dict: Dictionary with values 'reid' and 'ai' and their respective prior vulnerabilities.
+        """
+        if isinstance(sensitive, str):
+            sensitive = [sensitive]
+
+        self._check_cols(sensitive)
+
+        if atk == "reid":
+            return self._prior_reid()
+        elif atk == "ai":
+            return self._prior_ai(sensitive)
+        elif atk == "all":
+            return {"reid": self._prior_reid(), "ai":self._prior_ai(sensitive)}
+        else:
+            raise ValueError("Parameter atk must be 'ai', 'reid', or 'all'.")
+        
+    def posterior_vulnerability(
+            self,
+            atk,
+            qids,
+            sensitive=[],
+            distribution=False,
+            combinations:list[int]=None,
+            save_file=None,
+            zip_save=False,
+            n_processes=1,
+            return_results=True,
+            verbose=False
+        ):
+        """Posterior vulnerability. 
+        
+        Parameters:
+            atk (str): Either 'ai' for attribute inference attack, 'reid' for re-identification or 'all' for both attacks.
+            qids (list[str]): List of quasi-identifiers.
+            sensitive (str or Sequence[str], optional): A single or a list of sensitive attributes for attribute inference attack. Default is [].
+            distribution (bool, optional): Whether to return the distribution of posterior vulnerability per record. Default is False.
+            combinations (list[int]): Whether to run the attack for different subset of QIDs (instead of only the list of QIDs given in the parameter 'qids'). It must be provided a list of subset sizes of QIDs. The attack will be run for all subset of QIDs of sizes present in the list.
+            zip_save (bool, optional): Save the results in a zip file insteade of csv. Default is False.
+            save_file (str, optional): File name to save the results. They will be saved in CSV format. Works only when 'combinations' is given.
+            n_processes (int, optional): Number of processes to run the method in parallel using multiprocessing package. Default is 1. Works only when 'combinations' is given.
+            return_results (bool, optional): Whether to return the results or not. Default is True. Works only when 'combinations' is given.
+            verbose (bool, optional): Show the progress. Default is False. Works only when 'combinations' is given.
+
+        Returns:
+            if atk == 'reid':
+                float or (float, list): If distribution is False, returns the posterior vulnerability.
+                If distribution is True, returns a pair (<posterior vulnerability>, <distribution>).
+                Example of output when distribution is False::
+                    
+                    0.75
+
+                Example of output when distribution is True::
+                
+                    (0.75, [0.5, 0.5, 1.0, 1.0, 0.75])
+
+            if atk == 'ai':
+                dict[str, float] or (dict[str, list]):
+                If distribution is False, returns a dictionary containing the posterior vulnerability for each sensitive attribute.
+                If distribution is True, returns a pair ``(<posterior vulnerability>, <distribution for each sensitive attribute>)``.
+                Example of output when distribution is False::
+                
+                    {'disease': 0.3455, 'income':0.7}
+
+                Example of ouput when distribution is True::
+                
+                    ({'disease': 0.3455, 'income':0.7},
+                     {'disease': [0.1, 0.1, 0.3, 0.4, 0.8275],
+                      'income': [0.6, 0.7, 0.7, 0.7, 0.8]})
+
+            if atk == 'all':
+                dict: Dictionary with values 'reid' and 'ai' and their respective posterior vulnerabilities.
+
+            if combinations:
+                vulnerabilities: Pandas DataFrame with posterior vulnerabilities for all combination of n QIDs, where is the sizes provided in the parameter 'combinations'.
+        """
+        if isinstance(sensitive, str):
+            sensitive = [sensitive]
+
+        self._check_cols(qids + sensitive)
+        
+        if atk == "reid":
+            if combinations:
+                return self._posterior_reid_subset(
+                    qids, combinations, save_file, zip_save, n_processes, distribution, return_results, verbose
+                )
+            else:
+                return self._posterior_reid(qids, distribution)
+            
+        elif atk == "ai":
+            if combinations:
+                return self._posterior_ai_subset(
+                    qids, sensitive, combinations, save_file, zip_save, n_processes, distribution, return_results, verbose
+                )
+            else:
+                return self._posterior_ai(qids, sensitive, distribution)
+        elif atk == "all":
+            if combinations:
+                return self._posterior_reid_ai_subset(
+                    qids, sensitive, combinations, save_file, zip_save, n_processes, distribution, return_results, verbose
+                )
+            else:
+                post_reid, post_ai = self._posterior_reid_ai(qids, sensitive, distribution)
+                return {"reid": post_reid, "ai": post_ai}
+        else:
+            raise ValueError("Parameter atk must be 'ai', 'reid', or 'all'.")
+ 
     def _check_cols(self, cols:list[str]) -> bool:
         """Check if columns are a subset of columns of the dataset.
         
@@ -50,37 +175,7 @@ class Attack():
         # Use the indices to sort the array
         return self.data.dataset[sorted_indices][:,cols_idx].copy()
 
-    def _partial_result_reid(self, qids_subset:list[str]):
-        """Required by multiprocessing package in order to use imap_unordered()."""
-        return (list(qids_subset), self.posterior_reid(list(qids_subset)))
-
-    def _partial_result_reid_record(self, qids_subset:list[str]):
-        """Required by multiprocessing package in order to use imap_unordered().
-        It also returns the posterior vulnerability per record."""
-        return (list(qids_subset), self.posterior_reid(list(qids_subset), distribution=True))
-
-    def _partial_result_ai(self, params):
-        """Required by multiprocessing package in order to use imap_unordered()."""
-        qids_subset, sensitive = params
-        return (list(qids_subset), self.posterior_ai(list(qids_subset), sensitive))
-    
-    def _partial_result_ai_record(self, params):
-        """Required by multiprocessing package in order to use imap_unordered().
-        It also returns the posterior vulnerability per record."""
-        qids_subset, sensitive = params
-        return (list(qids_subset), self.posterior_ai(list(qids_subset), sensitive, distribution=True))
-
-    def _partial_result_reid_ai(self, params):
-        """Required by multiprocessing package in order to use imap_unordered()."""
-        qids_subset, sensitive = params
-        return (list(qids_subset), self.posterior_reid_ai(list(qids_subset), sensitive))
-    
-    def _partial_result_reid_ai_record(self, params):
-        """Required by multiprocessing package in order to use imap_unordered()."""
-        qids_subset, sensitive = params
-        return (list(qids_subset), self.posterior_reid_ai(list(qids_subset), sensitive, distribution=True))
-
-    def prior_reid(self):
+    def _prior_reid(self):
         """
         Prior vulnerability of probabilistic re-identification attack.
 
@@ -89,29 +184,24 @@ class Attack():
         """
         return 1 / self.data.n_rows
 
-    def prior_ai(self, sensitive:Union[str, List[str]]):
+    def _prior_ai(self, sensitive):
         """
         Prior vulnerability of probabilistic attribute inference attack.
         
         Parameters:
-            sensitive (str, list[str]): A single or a list of sensitive attributes.
+            sensitive: List of sensitive attributes.
 
         Returns:
             dict[str, float]: Dictionary containing the prior vulnerability for each sensitive attribute (keys are sensitive attribute names and values are posterior vulnerabilities).
         """
-        if isinstance(sensitive, str):
-            sensitive = [sensitive]
-        
-        self._check_cols(sensitive)
-
         priors = dict()
         for sens in sensitive:
             priors[sens] = 1/len(self.data.domains[sens])
         return priors
 
-    def posterior_reid(
+    def _posterior_reid(
             self,
-            qids:list[str],
+            qids,
             distribution=False
         ):
         """
@@ -155,17 +245,17 @@ class Attack():
         
         return posterior
     
-    def posterior_ai(
+    def _posterior_ai(
             self,
-            qids:list[str],
-            sensitive:Union[str,List[str]],
+            qids,
+            sensitive,
             distribution=False
         ):
         """
         Posterior vulnerability of probabilistic attribute inference attack.
 
         Parameters:
-            qids (list): List of quasi-identifiers. If not provided, all columns will be used.
+            qids (list[str]): List of quasi-identifiers.
             sensitive (str, list[str]): A single or a list of sensitive attributes.
             distribution (bool, optional): Whether to return the distribution of posterior vulnerability per record. Default is False.
 
@@ -234,10 +324,10 @@ class Attack():
         
         return posteriors
 
-    def posterior_reid_ai(
+    def _posterior_reid_ai(
             self,
-            qids:list[str],
-            sensitive:Union[str,List[str]],
+            qids,
+            sensitive,
             distribution=False
         ):  
         """
@@ -325,12 +415,10 @@ class Attack():
         
         return posterior_reid, posteriors_ai
 
-    # Subset ########################################
-    def posterior_reid_subset(
+    def _posterior_reid_subset(
             self,
-            qids:list[str],
-            num_min,
-            num_max,
+            qids,
+            n_qids:list[int],
             save_file=None,
             zip_save=False,
             n_processes=1,
@@ -338,12 +426,11 @@ class Attack():
             return_results=True,
             verbose=False
         ):
-        """Posterior vulnerability of probabilistic re-identification attack for subsets of qids. The attack is run for a subset of the powerset of qids, defined by parameters num_min and num_max. 
+        """Posterior vulnerability of probabilistic re-identification attack for subsets of qids. The posterior vulnerability will be calculated for combionations of all sizes of QIDs present in the sizes provided in parameter 'n_qids'.
         
         Parameters:
-            qids (list[str]): List of quasi-identifiers.
-            num_min (int): Minimum size of subset of qids.
-            num_max (int): Maximum size of subset of qids.
+            qids (list[str]): List of QIDs.
+            n_qids (list[int]): List of subset sizes of QIDs. The posterior vulnerability will be calculated for combinations of all sizes of QIDs present in the list.
             save_file (str, optional): File name to save the results. They will be saved in CSV format.
             zip_save (bool, optional): Save the results in a zip file insteade of csv. Default is False.
             n_processes (int, optional): Number of processes to run the method in parallel using multiprocessing package. Default is 1.
@@ -354,8 +441,6 @@ class Attack():
         Returns:
             (pandas.DataFrame): A pandas DataFrame containing columns "n_qids", "qids" and "posterior_reid", representing the number of qids in the combination, the actual combination and the posterior vulnerability for the given qid combination, respectively.
         """
-        self._check_cols(qids)
-
         posterior_cols = ["posterior_reid"]
         if distribution:
             posterior_cols += ["posterior_reid_record"]
@@ -372,12 +457,12 @@ class Attack():
         posteriors = []
         with multiprocessing.Pool(processes=n_processes) as pool:
             # For qid combinations in the given range run re-identification attack
-            for n_qids in tqdm(np.arange(num_min, num_max + 1), desc="Qids combination size", disable=(not verbose)):
+            for n in tqdm(n_qids, desc="Qids combination size", disable=(not verbose)):
 
-                # Run the attack for all combination of 'n_qids' QIDs
+                # Run the attack for all combination of 'n' QIDs
                 results = pool.imap_unordered(
                     partial_method,
-                    it.combinations(qids, n_qids)
+                    it.combinations(qids, n)
                 )
 
                 # Get results from the pool
@@ -396,13 +481,13 @@ class Attack():
                         # Append to save_file
                         with open(save_file, mode="a", newline="") as file:
                             writer = csv.writer(file)
-                            writer.writerows([[int(n_qids), ",".join(qids_comb)] + posterior_partial + posterior_vul_record])
+                            writer.writerows([[int(n), ",".join(qids_comb)] + posterior_partial + posterior_vul_record])
                             
                     if return_results:
-                        partial_result.append([int(n_qids), ",".join(qids_comb)] + posterior_partial + posterior_vul_record)
+                        partial_result.append([int(n), ",".join(qids_comb)] + posterior_partial + posterior_vul_record)
                 
                 if return_results:
-                    # Save once finished all combinations for 'n_qids'
+                    # Save once finished all combinations for 'n'
                     posteriors.extend(partial_result)
 
         if zip_save:
@@ -418,12 +503,11 @@ class Attack():
             posteriors = pd.DataFrame(posteriors, columns=["n_qids", "qids"] + posterior_cols)
             return posteriors
         
-    def posterior_ai_subset(
+    def _posterior_ai_subset(
             self,
-            qids:list[str],
-            sensitive:Union[str,List[str]],
-            num_min,
-            num_max,
+            qids,
+            sensitive,
+            n_qids:list[int],
             save_file=None,
             zip_save=False,
             n_processes=1,
@@ -431,13 +515,12 @@ class Attack():
             return_results=True,
             verbose=False
         ):
-        """Posterior vulnerability of probabilistic attribute inference attack for subsets of qids. The attack is run for a subset of the powerset of qids, defined by parameters num_min and num_max.
+        """Posterior vulnerability of probabilistic attribute inference attack for subsets of qids. The posterior vulnerability will be calculated for combionations of all sizes of QIDs present in the sizes provided in parameter 'n_qids'.
         
         Parameters:
             qids (list[str]): List of quasi-identifiers.
             sensitive (str, list[str]): A single or a list of sensitive attributes.
-            num_min (int): Minimum size of subset of qids.
-            num_max (int): Maximum size of subset of qids.
+            n_qids (list[int]): List of subset sizes of QIDs. The posterior vulnerability will be calculated for combinations of all sizes of QIDs present in the list.
             save_file (str, optional): File name to save the results. They will be saved in CSV format.
             zip_save (bool, optional): Save the results in a zip file insteade of csv. Default is False.
             n_processes (int, optional): Number of processes to run the method in parallel using multiprocessing package. Default is 1.
@@ -448,11 +531,6 @@ class Attack():
         Returns:
             (pandas.DataFrame): A pandas DataFrame containing columns "n_qids", "qids" and one column "posterior_S" for every sensitive attribute S, representing, respectively, the number of qids in the combination, the actual combination and the posterior vulnerability for each sensitive attribute.
         """
-        if isinstance(sensitive, str):
-            sensitive = [sensitive]
-
-        self._check_cols(qids + sensitive)
-
         posterior_cols = [f"posterior_{sens}" for sens in sensitive]
         if distribution:
             posterior_cols += [f"posterior_{sens}_record" for sens in sensitive]
@@ -469,12 +547,12 @@ class Attack():
         posteriors = []
         with multiprocessing.Pool(processes=n_processes) as pool:
             # For qid combinations in the given range run re-identification attack
-            for n_qids in tqdm(np.arange(num_min, num_max + 1), desc="Qids combination size", disable=(not verbose)):
+            for n in tqdm(n_qids, desc="Qids combination size", disable=(not verbose)):
 
-                # Run the attack for all combination of 'n_qids' QIDs
+                # Run the attack for all combination of 'n' QIDs
                 results = pool.imap_unordered(
                     partial_method,
-                    ((comb,sensitive) for comb in it.combinations(qids, n_qids))
+                    ((comb,sensitive) for comb in it.combinations(qids, n))
                 )
 
                 # Get results from the pool
@@ -493,13 +571,13 @@ class Attack():
                         # Append to save_file
                         with open(save_file, mode="a", newline="") as file:
                             writer = csv.writer(file)
-                            writer.writerows([[int(n_qids), ",".join(qids_comb)] + posteriors_partial + posterior_vul_record])
+                            writer.writerows([[int(n), ",".join(qids_comb)] + posteriors_partial + posterior_vul_record])
                             
                     if return_results:
-                        partial_result.append([int(n_qids), ",".join(qids_comb)] + posteriors_partial + posterior_vul_record)
+                        partial_result.append([int(n), ",".join(qids_comb)] + posteriors_partial + posterior_vul_record)
                 
                 if return_results:
-                    # Save once finished all combinations for 'n_qids'
+                    # Save once finished all combinations for 'n'
                     posteriors.extend(partial_result)
         
         if zip_save:
@@ -515,12 +593,11 @@ class Attack():
             posteriors = pd.DataFrame(posteriors, columns=["n_qids", "qids"] + posterior_cols)
             return posteriors
     
-    def posterior_reid_ai_subset(
+    def _posterior_reid_ai_subset(
             self,
-            qids:list[str],
-            sensitive:Union[str,List[str]],
-            num_min,
-            num_max,
+            qids,
+            sensitive,
+            n_qids:list[int],
             save_file=None,
             zip_save=False,
             n_processes=1,
@@ -528,13 +605,12 @@ class Attack():
             return_results=True,
             verbose=False
         ):
-        """Posterior vulnerability of probabilistic re-identification and attribute inference attack for subsets of qids. The attack is run for a subset of the powerset of qids, defined by parameters num_min and num_max.
+        """Posterior vulnerability of probabilistic re-identification and attribute inference attack for subsets of qids. The posterior vulnerability will be calculated for combionations of all sizes of QIDs present in the sizes provided in parameter 'n_qids'.
         
         Parameters:
             qids (list[str]): List of quasi-identifiers.
             sensitive (str, list[str]): A single or a list of sensitive attributes.
-            num_min (int): Minimum size of subset of qids.
-            num_max (int): Maximum size of subset of qids.
+            n_qids (list[int]): List of subset sizes of QIDs. The posterior vulnerability will be calculated for combinations of all sizes of QIDs present in the list.
             save_file (str, optional): File name to save the results. They will be saved in CSV format.
             zip_save (bool, optional): Save the results in a zip file insteade of csv. Default is False.
             n_processes (int, optional): Number of processes to run the method in parallel using multiprocessing package. Default is 1.
@@ -545,11 +621,6 @@ class Attack():
         Returns:
             (pandas.DataFrame): A pandas DataFrame containing columns "n_qids", "qids", "posterior_reid", and one column "posterior_S" for every sensitive attribute S, representing, respectively, the number of qids in the combination, the actual combination, the posterior vulnerability for re-identification and the posterior vulnerability for each sensitive attribute.
         """
-        if isinstance(sensitive, str):
-            sensitive = [sensitive]
-
-        self._check_cols(qids + sensitive)
-
         posterior_cols = ["posterior_reid"]
         if distribution:
             posterior_cols += ["posterior_reid_record"]
@@ -569,12 +640,12 @@ class Attack():
         posteriors = []
         with multiprocessing.Pool(processes=n_processes) as pool:
             # For qid combinations in the given range run re-identification attack
-            for n_qids in tqdm(np.arange(num_min, num_max + 1), desc="Qids combination size", disable=(not verbose)):
+            for n in tqdm(n_qids, desc="Qids combination size", disable=(not verbose)):
 
-                # Run the attack for all combination of 'n_qids' QIDs
+                # Run the attack for all combination of 'n' QIDs
                 results = pool.imap_unordered(
                     partial_method,
-                    ((comb,sensitive) for comb in it.combinations(qids, n_qids))
+                    ((comb,sensitive) for comb in it.combinations(qids, n))
                 )
 
                 # Get results from the pool
@@ -596,19 +667,19 @@ class Attack():
                         with open(save_file, mode="a", newline="") as file:
                             writer = csv.writer(file)
                             writer.writerows(
-                                [[int(n_qids), ",".join(qids_comb)] +
+                                [[int(n), ",".join(qids_comb)] +
                                 posterior_partial_reid + posterior_reid_record + 
                                 posteriors_partial_ai + posterior_ai_record]
                             )
                     
                     if return_results:
                         partial_result.append(
-                            [int(n_qids), ",".join(qids_comb)] +
+                            [int(n), ",".join(qids_comb)] +
                             posterior_partial_reid + posterior_reid_record + 
                             posteriors_partial_ai + posterior_ai_record
                         )
                     
-                # Save once finished all combinations for 'n_qids'
+                # Save once finished all combinations for 'n'
                 posteriors.extend(partial_result)
                 
         if zip_save:
@@ -623,11 +694,58 @@ class Attack():
         if return_results:
             posteriors = pd.DataFrame(posteriors, columns=["n_qids", "qids"] + posterior_cols)
             return posteriors
+   
+    def _partial_result_reid(self, qids_subset:list[str]):
+        """Required by multiprocessing package in order to use imap_unordered()."""
+        return (list(qids_subset), self._posterior_reid(list(qids_subset)))
+
+    def _partial_result_reid_record(self, qids_subset:list[str]):
+        """Required by multiprocessing package in order to use imap_unordered().
+        It also returns the posterior vulnerability per record."""
+        return (list(qids_subset), self._posterior_reid(list(qids_subset), distribution=True))
+
+    def _partial_result_ai(self, params):
+        """Required by multiprocessing package in order to use imap_unordered()."""
+        qids_subset, sensitive = params
+        return (list(qids_subset), self._posterior_ai(list(qids_subset), sensitive))
     
-    # KRR ########################################
+    def _partial_result_ai_record(self, params):
+        """Required by multiprocessing package in order to use imap_unordered().
+        It also returns the posterior vulnerability per record."""
+        qids_subset, sensitive = params
+        return (list(qids_subset), self._posterior_ai(list(qids_subset), sensitive, distribution=True))
+
+    def _partial_result_reid_ai(self, params):
+        """Required by multiprocessing package in order to use imap_unordered()."""
+        qids_subset, sensitive = params
+        return (list(qids_subset), self._posterior_reid_ai(list(qids_subset), sensitive))
+    
+    def _partial_result_reid_ai_record(self, params):
+        """Required by multiprocessing package in order to use imap_unordered()."""
+        qids_subset, sensitive = params
+        return (list(qids_subset), self._posterior_reid_ai(list(qids_subset), sensitive, distribution=True))
+   
+class KRR(Attack):
+    def __init__(self, data:privattacks.Data):
+        """
+        Initialize an instance of the Attack class.
+
+        Parameters:
+            data (privattacks.Data): An instance of the Data class from the privattacks module. 
+            This object represents the dataset to be used for analyzing vulnerabilities 
+            to probabilistic re-identification and attribute inference attacks.
+
+        Attributes:
+            data (privattacks.Data): Stores the dataset object, providing access to 
+            the dataset's attributes, such as columns (`cols`) and number of rows 
+            (`n_rows`).
+        """
+        self.data = data
+        super().__init__(data)  # Initialize base class
+
     def posterior_reid_krr_individual(
             self,
-            qids:list[str],
+            qids,
             data_san:privattacks.Data,
             epsilons:dict[str,float]
         ):
@@ -678,8 +796,8 @@ class Attack():
     
     def posterior_ai_krr_individual(
             self,
-            qids:list[str],
-            sensitive:Union[str,List[str]],
+            qids,
+            sensitive,
             data_san:privattacks.Data,
             epsilons:dict[str,float]
         ):
@@ -745,8 +863,8 @@ class Attack():
     
     def posterior_reid_ai_krr_individual(
             self,
-            qids:list[str],
-            sensitive:Union[str,List[str]],
+            qids,
+            sensitive,
             data_san:privattacks.Data,
             epsilons:dict[str,float]
         ):
@@ -875,7 +993,7 @@ class Attack():
     def posterior_ai_krr_combined(
             self,
             qids:str,
-            sensitive:Union[str,List[str]],
+            sensitive,
             data_san:privattacks.Data,
             epsilon:float
         ):
@@ -944,7 +1062,7 @@ class Attack():
     def posterior_reid_ai_krr_combined(
             self,
             qids:str,
-            sensitive:Union[str,List[str]],
+            sensitive,
             data_san:privattacks.Data,
             epsilon:float
         ):

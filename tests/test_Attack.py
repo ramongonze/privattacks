@@ -27,32 +27,38 @@ class TestAttack(unittest.TestCase):
         self.sensitive2 = ["disease"] 
 
     def test_prior_reid(self):
-        self.assertAlmostEqual(self.attack1.prior_reid(), 1/8)
-        self.assertAlmostEqual(self.attack2.prior_reid(), 1/10)
+        self.assertAlmostEqual(self.attack1.prior_vulnerability("reid"), 1/8)
+        self.assertAlmostEqual(self.attack2.prior_vulnerability("reid"), 1/10)
 
     def test_posterior_reid(self):
-        self.assertAlmostEqual(self.attack1.posterior_reid(self.qids1), 1/2)
-        self.assertAlmostEqual(self.attack2.posterior_reid(self.qids2), 3/10)
+        self.assertAlmostEqual(self.attack1.posterior_vulnerability("reid", self.qids1), 1/2)
+        self.assertAlmostEqual(self.attack2.posterior_vulnerability("reid", self.qids2), 3/10)
 
     def test_prior_ai(self):
-        self.assertAlmostEqual(self.attack1.prior_ai(self.sensitive1)[self.sensitive1[0]], 1/3)
-        self.assertAlmostEqual(self.attack2.prior_ai(self.sensitive2)[self.sensitive2[0]], 1/2)
+        self.assertAlmostEqual(self.attack1.prior_vulnerability("ai", self.sensitive1)[self.sensitive1[0]], 1/3)
+        self.assertAlmostEqual(self.attack2.prior_vulnerability("ai", self.sensitive2)[self.sensitive2[0]], 1/2)
 
     def test_posterior_ai(self):
-        self.assertAlmostEqual(self.attack1.posterior_ai(self.qids1, self.sensitive1)[self.sensitive1[0]], 3/4)
-        self.assertAlmostEqual(self.attack2.posterior_ai(self.qids2, self.sensitive2)[self.sensitive2[0]], 6/10)
+        self.assertAlmostEqual(self.attack1.posterior_vulnerability(
+            "ai", self.qids1, self.sensitive1)[self.sensitive1[0]], 3/4
+        )
+        self.assertAlmostEqual(self.attack2.posterior_vulnerability(
+            "ai", self.qids2, self.sensitive2)[self.sensitive2[0]], 6/10
+        )
 
     def test_posterior_reid_ai(self):
-        posterior_reid, posteriors_ai = self.attack1.posterior_reid_ai(self.qids1, self.sensitive1)
+        posteriors = self.attack1.posterior_vulnerability("all", self.qids1, self.sensitive1)
+        posterior_reid, posteriors_ai = posteriors["reid"], posteriors["ai"]
         self.assertAlmostEqual(posterior_reid, 1/2)
         self.assertAlmostEqual(posteriors_ai[self.sensitive1[0]], 3/4)
         
-        posterior_reid, posteriors_ai = self.attack2.posterior_reid_ai(self.qids2, self.sensitive2)
+        posteriors = self.attack2.posterior_vulnerability("all", self.qids2, self.sensitive2)
+        posterior_reid, posteriors_ai = posteriors["reid"], posteriors["ai"]
         self.assertAlmostEqual(posterior_reid, 3/10)
         self.assertAlmostEqual(posteriors_ai[self.sensitive2[0]], 6/10)
 
     def test_posterior_reid_record(self):
-        _, distribution = self.attack1.posterior_reid(self.qids1, distribution=True)
+        _, distribution = self.attack1.posterior_vulnerability("reid", self.qids1, distribution=True)
         distribution = sorted(distribution)
         distribution_gt = sorted([1, 1/2, 1/2, 1/2, 1/2, 1/3, 1/3, 1/3])
         for i in np.arange(len(distribution)):
@@ -61,7 +67,7 @@ class TestAttack(unittest.TestCase):
         # Test average
         self.assertAlmostEqual(np.array(distribution).mean(), 1/2)
 
-        _, distribution = self.attack2.posterior_reid(self.qids2, distribution=True)
+        _, distribution = self.attack2.posterior_vulnerability("reid", self.qids2, distribution=True)
         distribution = sorted(distribution)
         distribution_gt = sorted([1/5]*5 + [1/4]*4 + [1])
         for i in np.arange(len(distribution)):
@@ -71,7 +77,7 @@ class TestAttack(unittest.TestCase):
         self.assertAlmostEqual(np.array(distribution).mean(), 3/10)
 
     def test_posterior_ai_record(self):
-        _, distribution = self.attack1.posterior_ai(self.qids1, self.sensitive1, distribution=True)
+        _, distribution = self.attack1.posterior_vulnerability("ai", self.qids1, self.sensitive1, distribution=True)
         distribution = sorted(distribution[self.sensitive1[0]])
         distribution_gt = sorted([1, 1/2, 1/2, 1, 1, 2/3, 2/3, 2/3])
         for i in np.arange(len(distribution)):
@@ -80,7 +86,7 @@ class TestAttack(unittest.TestCase):
         # Test average
         self.assertAlmostEqual(np.array(distribution).mean(), 3/4)
 
-        _, distribution = self.attack2.posterior_ai(self.qids2, self.sensitive2, distribution=True)
+        _, distribution = self.attack2.posterior_vulnerability("ai", self.qids2, self.sensitive2, distribution=True)
         distribution = sorted(distribution[self.sensitive2[0]])
         distribution_gt = sorted([3/5]*5 + [2/4]*4 + [1])
         for i in np.arange(len(distribution)):
@@ -90,7 +96,9 @@ class TestAttack(unittest.TestCase):
         self.assertAlmostEqual(np.array(distribution).mean(), 6/10)
 
     def test_posterior_reid_ai_record(self):
-        ((_, distribution_reid), (_,distribution_ai)) = self.attack1.posterior_reid_ai(self.qids1, self.sensitive1, distribution=True)
+        posteriors = self.attack1.posterior_vulnerability("all", self.qids1, self.sensitive1, distribution=True)
+        (_, distribution_reid), (_,distribution_ai) = posteriors["reid"], posteriors["ai"]
+
         distribution_reid = sorted(distribution_reid)
         distribution_reid_gt = sorted([1, 1/2, 1/2, 1/2, 1/2, 1/3, 1/3, 1/3])
         distribution_ai = sorted(distribution_ai[self.sensitive1[0]])
@@ -105,7 +113,8 @@ class TestAttack(unittest.TestCase):
         self.assertAlmostEqual(np.array(distribution_reid).mean(), 1/2)
         self.assertAlmostEqual(np.array(distribution_ai).mean(), 3/4)
 
-        ((_, distribution_reid), (_,distribution_ai)) = self.attack2.posterior_reid_ai(self.qids2, self.sensitive2, distribution=True)
+        posteriors = self.attack2.posterior_vulnerability("all", self.qids2, self.sensitive2, distribution=True)
+        (_, distribution_reid), (_,distribution_ai) = posteriors["reid"], posteriors["ai"]
         distribution_reid = sorted(distribution_reid)
         distribution_reid_gt = sorted([1/5]*5 + [1/4]*4 + [1])
         distribution_ai = sorted(distribution_ai[self.sensitive2[0]])
@@ -121,7 +130,8 @@ class TestAttack(unittest.TestCase):
         self.assertAlmostEqual(np.array(distribution_ai).mean(), 6/10)
 
     def test_posterior_reid_subset(self):
-        results = self.attack1.posterior_reid_subset(self.qids1, 1, len(self.qids1))
+        combinations = list(range(1, len(self.qids1)+1))
+        results = self.attack1.posterior_vulnerability("reid", self.qids1, combinations=combinations)
 
         # Age
         true_posterior = 3/8
@@ -139,7 +149,8 @@ class TestAttack(unittest.TestCase):
         self.assertAlmostEqual(true_posterior, calculated_posterior)
 
     def test_posterior_ai_subset(self):
-        results = self.attack1.posterior_ai_subset(self.qids1, self.sensitive1, 1, len(self.qids1))
+        combinations = list(range(1, len(self.qids1)+1))
+        results = self.attack1.posterior_vulnerability("ai", self.qids1, self.sensitive1, combinations=combinations)
         true_posterior = 3/4
         
         # Age
@@ -155,7 +166,8 @@ class TestAttack(unittest.TestCase):
         self.assertAlmostEqual(true_posterior, calculated_posterior)
 
     def test_posterior_reid_ai_subset(self):
-        results = self.attack1.posterior_reid_ai_subset(self.qids1, self.sensitive1, 1, len(self.qids1))
+        combinations = list(range(1, len(self.qids1)+1))
+        results = self.attack1.posterior_vulnerability("all", self.qids1, self.sensitive1, combinations=combinations)
         
         # Re-identificadtion
         # Age
@@ -188,7 +200,10 @@ class TestAttack(unittest.TestCase):
         self.assertAlmostEqual(true_posterior, calculated_posterior)
 
     def test_posterior_reid_ai_subset_parallel(self):
-        results = self.attack1.posterior_reid_ai_subset(self.qids1, self.sensitive1, 1, len(self.qids1), n_processes=4)
+        combinations = list(range(1, len(self.qids1)+1))
+        results = self.attack1.posterior_vulnerability(
+            "all", self.qids1, self.sensitive1, combinations=combinations, n_processes=4
+        )
         
         # Re-identificadtion
         # Age
