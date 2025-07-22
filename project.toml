@@ -11,9 +11,16 @@ classifiers = [
 ]
 license = "MIT"
 license-files = ["LICEN[CS]E*"]
+dependencies = [
+    "pandas>=2.2.3",
+    "numpy>=2.0.2",
+    "tqdm>=4.65.0",
+    "pyreadr>=0.5.2"
+]
 
 [project.urls]
-Homepage = "https://github.com/ramongonze/privattacks"
+Documentation = "https://privattacks.readthedocs.io/"
+Repository = "https://github.com/ramongonze/privattacks.git"
 Issues = "https://github.com/ramongonze/privattacks/issues"
 
 [build-system]
