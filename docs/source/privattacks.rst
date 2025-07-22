@@ -1,37 +1,26 @@
-privattacks package
+Privattacks modules
 ===================
 
-Submodules
-----------
-
-privattacks.attacks module
---------------------------
+privattacks.attacks
+-------------------
 
 .. automodule:: privattacks.attacks
    :members:
    :undoc-members:
    :show-inheritance:
 
-privattacks.data module
------------------------
+privattacks.data
+----------------
 
 .. automodule:: privattacks.data
    :members:
    :undoc-members:
    :show-inheritance:
 
-privattacks.util module
------------------------
+privattacks.util
+----------------
 
 .. automodule:: privattacks.util
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-Module contents
----------------
-
-.. automodule:: privattacks
    :members:
    :undoc-members:
    :show-inheritance:

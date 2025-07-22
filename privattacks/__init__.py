@@ -2,5 +2,6 @@
 
 from privattacks.data import Data
 from privattacks.attacks import Attack
+from privattacks.attacks import KRR
 from privattacks.sanitization import krr_individual
 from privattacks.util import create_histogram

@@ -6,13 +6,13 @@
 Privattacks documentation
 =========================
 
-Add your content using ``reStructuredText`` syntax. See the
-`reStructuredText <https://www.sphinx-doc.org/en/master/usage/restructuredtext/index.html>`_
-documentation for details.
+Privattacks - Python package for re-identification and attribute inference attacks.
 
 
 .. toctree::
    :maxdepth: 2
    :caption: Contents:
 
-   source/modules
+   source/attack_formalization
+   source/getting_started
+   source/privattacks
