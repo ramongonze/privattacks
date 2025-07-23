@@ -16,8 +16,8 @@ project = 'Privattacks'
 copyright = '2025, Ramon Gonçalves Gonze'
 author = 'Ramon Gonçalves Gonze'
 
-from importlib.metadata import version
-release = version("privattacks")
+from importlib.metadata import version as pkg_version
+release = pkg_version("privattacks")
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
