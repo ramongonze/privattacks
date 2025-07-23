@@ -1,1 +1,2 @@
-include requirements.txt
+include requirements.txt README.md LICENSE
+recursive-include src/privattacks *.py

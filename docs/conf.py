@@ -18,6 +18,7 @@ release = '1.2'
 import os
 import sys
 sys.path.insert(0, os.path.abspath('..'))
+sys.path.insert(0, os.path.abspath('../src'))  # uncomment if you use a src/ layout
 
 extensions = [
     'sphinx.ext.autodoc',  # For generating documentation from docstrings
