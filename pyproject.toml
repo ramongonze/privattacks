@@ -1,6 +1,6 @@
 [project]
 name = "privattacks"
-version = "1.2"
+dynamic = ["version"] # tell PEP 621 that “version” is supplied later
 description = "Privattacks is a Python package for evaluating privacy risks in tabular datasets. It provides tools to quantify re-identification and attribute inference vulnerabilities based on combinations of quasi-identifiers an adversary knows about a target. The package supports both high-level and granular analysis, including per-record vulnerability distributions, multiprocessing for efficiency, and flexible input handling via pandas DataFrames and other sources."
 authors = [{name="Ramon Gonçalves Gonze", email="ramongonze@gmail.com"}]
 readme = "README.md"
@@ -27,5 +27,11 @@ Issues = "https://github.com/ramongonze/privattacks/issues"
 requires = ["setuptools>=68.0.0"]
 build-backend = "setuptools.build_meta"
 
+[tool.setuptools.package-dir] # tell setuptools I'am using a src layout
+"" = "src"
+
 [tool.setuptools.packages.find]
-where = ["src"]          # look in src/
+where = ["src"] # look in src/
+
+[tool.setuptools.dynamic]
+version = {attr = "privattacks.__version__"}

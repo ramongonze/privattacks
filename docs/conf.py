@@ -6,19 +6,22 @@
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
-project = 'Privattacks'
-copyright = '2025, Ramon G. Gonze'
-author = 'Ramon Gonçalves Gonze'
-release = '1.2'
-
-# -- General configuration ---------------------------------------------------
-# https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
-
 # Ensure the     project is importable
 import os
 import sys
 sys.path.insert(0, os.path.abspath('..'))
-sys.path.insert(0, os.path.abspath('../src'))  # uncomment if you use a src/ layout
+sys.path.insert(0, os.path.abspath('../src'))
+
+project = 'Privattacks'
+copyright = '2025, Ramon Gonçalves Gonze'
+author = 'Ramon Gonçalves Gonze'
+
+from importlib.metadata import version
+release = version("privattacks")
+
+# -- General configuration ---------------------------------------------------
+# https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
+
 
 extensions = [
     'sphinx.ext.autodoc',  # For generating documentation from docstrings
