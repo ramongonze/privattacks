@@ -27,6 +27,7 @@ extensions = [
     'sphinx.ext.mathjax',  # Renders LaTeX equations using MathJax
     'myst_parser' # Enables the usage of Markdown for the documentation
 ]
+autosummary_generate = True
 
 myst_enable_extensions = [
     "dollarmath",      # <-- enables $ and $$ math blocks
