@@ -1,7 +1,9 @@
-"""This package includes classes designed to streamline data management and attack handling."""
+from .data import Data
+from .attacks import Attack, KRR
+from .util import create_histogram
+from .sanitization import krr_individual, krr_combined
 
-from privattacks.data import Data
-from privattacks.attacks import Attack
-from privattacks.attacks import KRR
-from privattacks.sanitization import krr_individual
-from privattacks.util import create_histogram
+from importlib.metadata import version
+__version__ = version(__name__)
+
+__all__ = ["Data", "Attack", "KRR", "create_histogram", "krr_individual", "krr_combined"]

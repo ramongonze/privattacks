@@ -8,8 +8,8 @@
 
 project = 'Privattacks'
 copyright = '2025, Ramon G. Gonze'
-author = 'Ramon G. Gonze'
-release = '1.0'
+author = 'Ramon Gonçalves Gonze'
+release = '1.2'
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration

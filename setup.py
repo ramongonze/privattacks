@@ -17,7 +17,7 @@ install_requires += docs_requires
 
 setuptools.setup( 
     name="privattacks",
-    version="1.1",
+    version="1.2",
     python_requires=">=3.9",
     description="Privattacks is a Python package for evaluating privacy risks in tabular datasets. It provides tools to quantify re-identification and attribute inference vulnerabilities based on combinations of quasi-identifiers an adversary knows about a target. The package supports both high-level and granular analysis, including per-record vulnerability distributions, multiprocessing for efficiency, and flexible input handling via pandas DataFrames and other sources.",
     author="Ramon Gonçalves Gonze",
