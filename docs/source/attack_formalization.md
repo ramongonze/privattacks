@@ -4,12 +4,12 @@ Attack definitions
 We define here formally re-identification and attribute inference attacks.
 
 ## Definitions
-- Let $\mathcal{A} = \{a_1, \ldots, a_k\}$ be the set of attributes, and let $\mathcal{D}(a_i)$ be the domain of attribute $a_i$.
-- A dataset $D = \{r_1, \ldots, r_n\}$ is a set of rows where $r_i \in a_1 \times \ldots \times a_k$ is a tuple of $k$ values and represents one individual in the population.
+- Let $\mathcal{A} = \{a_1, \ldots, a_k\}$ be the set of attributes, and let ${\sf dom}(a_i)$ be the domain of attribute $a_i$.
+- A dataset $D = \{r_1, \ldots, r_n\}$ is a set of rows where $r_i \in {\sf dom}(a_1) \times \ldots \times {\sf dom}(a_k)$ is a tuple of $k$ values and represents one individual in the population.
 - Let $\mathcal{S} \subseteq \mathcal{A}$ be a subset of attributes. We say that $r_i[\mathcal{S}]$ are the attribute values of the individual $r_i$ for attributes in $\mathcal{S}$, e.g., $r_2[\{\text{age}, \text{education}\}] = (23, Bachelor)$.
 
 Assumptions about the adversary:
-  - She knows $D$, $\mathcal{A}$ and all $\mathcal{D}(a_i)$.
+  - She knows $D$, $\mathcal{A}$ and all ${\sf dom}(a_i)$.
   - She has a single target $r_t \in D$ (random person from the population) and knows some quasi-identifiers (QIDs) about the target, i.e., there is a subset of attributes $\mathcal{Q} \subseteq \mathcal{A}$ and she knows $r_t[\mathcal{Q}]$.
   - For re-identification: The adversary is trying to find out which row correspond to her target.
   - For attribute-inference: The adversary is trying to infer the value of a sensitive attribute $a_s \in \mathcal{A}$.
