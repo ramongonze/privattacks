@@ -1,6 +1,6 @@
 [project]
 name = "privattacks"
-version = "1.0"
+version = "1.1"
 description = "Privattacks is a Python package for evaluating privacy risks in tabular datasets. It provides tools to quantify re-identification and attribute inference vulnerabilities based on combinations of quasi-identifiers an adversary knows about a target. The package supports both high-level and granular analysis, including per-record vulnerability distributions, multiprocessing for efficiency, and flexible input handling via pandas DataFrames and other sources."
 authors = [{name="Ramon Gonçalves Gonze", email="ramongonze@gmail.com"}]
 readme = "README.md"
@@ -26,3 +26,10 @@ Issues = "https://github.com/ramongonze/privattacks/issues"
 [build-system]
 requires = ["setuptools>=68.0.0"]
 build-backend = "setuptools.build_meta"
+
+[tool.setuptools.package-dir]
+"" = "src"
+
+[tool.setuptools.packages.find]
+where = ["src"]          # look in src/
+include = ["privattacks*"]
