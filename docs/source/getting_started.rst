@@ -106,7 +106,7 @@ We first calculate the prior and posterior vulnerabilities for:
     Posterior vulnerability: 0.50000
 
     Attribute inference - income
-    Prior vulnerability; 0.33333
+    Prior vulnerability; 0.500000
     Posterior vulnerability: 0.75000
 
 This provides an initial assessment of the risk posed by attackers with and without auxiliary information (quasi-identifiers).

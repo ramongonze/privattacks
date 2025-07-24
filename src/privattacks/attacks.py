@@ -192,9 +192,17 @@ class Attack():
         Returns:
             dict[str, float]: Dictionary containing the prior vulnerability for each sensitive attribute (keys are sensitive attribute names and values are posterior vulnerabilities).
         """
+        if isinstance(sensitive, str):
+            sensitive = [sensitive]
+
+        self._check_cols(sensitive)
+
         priors = dict()
         for sens in sensitive:
-            priors[sens] = 1/len(self.data.domains[sens])
+            # Select the most frequent sensitive value
+            sens_idx = self.data.col2int(sens)
+            _, counts = np.unique(self.data.dataset[:, sens_idx], return_counts=True)
+            priors[sens] = max(counts)/self.data.n_rows
         return priors
 
     def _posterior_reid(
