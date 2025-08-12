@@ -23,7 +23,7 @@ or manuallly by copying this repository to your local machine and running:
 pip install path/to/privattacks
 ```
 
-To verify if the package was install corretly, you can run tests:
+To verify if the package was installed correctly, you can run tests:
 
 ```
 cd path/to/privattacks
