@@ -9,21 +9,17 @@ import itertools as it
 import zipfile
 
 class Attack():
+    """
+    Initialize an instance of the Attack class.
+
+    Parameters:
+        data (privattacks.Data): An instance of the Data class from the privattacks module. This object represents the dataset to be used for analyzing vulnerabilities to probabilistic re-identification and attribute inference attacks.
+
+    Attributes:
+        data (privattacks.Data): Stores the dataset object, providing access to the dataset's attributes, such as columns (`cols`) and number of rows (`n_rows`).
+    """
 
     def __init__(self, data:privattacks.Data):
-        """
-        Initialize an instance of the Attack class.
-
-        Parameters:
-            data (privattacks.Data): An instance of the Data class from the privattacks module. 
-            This object represents the dataset to be used for analyzing vulnerabilities 
-            to probabilistic re-identification and attribute inference attacks.
-
-        Attributes:
-            data (privattacks.Data): Stores the dataset object, providing access to 
-            the dataset's attributes, such as columns (`cols`) and number of rows 
-            (`n_rows`).
-        """
         self.data = data
 
     def prior_vulnerability(
